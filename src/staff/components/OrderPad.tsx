@@ -37,7 +37,7 @@ export function OrderPad({ billId, title, open, onClose }: { billId: string; tit
   }
 
   function submit() {
-    dispatch("staff_order", { order_id: uuid(), bill_id: billId, items: lines.map(({ key: _k, ...l }) => l) });
+    dispatch("staff_order", { order_id: uuid(), bill_id: billId, items: lines.map(({ key: _k, ...l }) => ({ ...l, id: uuid() })) });
     toast(t("o.staffOrderAdded"));
     setLines([]);
     onClose();

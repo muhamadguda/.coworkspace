@@ -2,6 +2,7 @@
 // closely enough for the UI to keep working offline. Every case is idempotent: applying
 // an op whose effect is already in the snapshot changes nothing.
 import { billTotals, businessDay, round2 } from "@/lib/billing";
+import { rateFor } from "@/lib/pricing";
 import type { Bill, ChosenOption, Order, OrderItem, Snapshot } from "@/lib/types";
 
 export type OpType =
@@ -27,7 +28,9 @@ export type OpType =
   | "pay_debt"
   | "booking_decide"
   | "booking_create"
-  | "set_item_available";
+  | "set_item_available"
+  | "edit_item"
+  | "transfer_booker";
 
 export type Op = {
   id: string;
@@ -37,7 +40,7 @@ export type Op = {
   by?: string; // user id that queued it
 };
 
-export type ItemInput = { menu_item_id: string; qty: number; options: { group_id: string; choice_id: string }[]; note?: string };
+export type ItemInput = { id?: string; menu_item_id: string; qty: number; options: { group_id: string; choice_id: string }[]; note?: string };
 
 type P = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -61,13 +64,13 @@ export function buildOrderItems(s: Snapshot, orderId: string, items: ItemInput[]
       const c = g?.choices.find((x) => x.id === o.choice_id);
       return g && c ? [{ group_id: g.id, choice_id: c.id, group_ar: g.name_ar, group_en: g.name_en, choice_ar: c.name_ar, choice_en: c.name_en }] : [];
     });
-    return [{ id: `${orderId}:${idx}`, order_id: orderId, menu_item_id: m.id, name_ar: m.name_ar, name_en: m.name_en, unit_price: m.price, qty: it.qty, options, note: it.note ?? "" }];
+    return [{ id: it.id ?? `${orderId}:${idx}`, order_id: orderId, menu_item_id: m.id, name_ar: m.name_ar, name_en: m.name_en, unit_price: m.price, qty: it.qty, options, note: it.note ?? "" }];
   });
 }
 
 export function itemsTotalFor(s: Snapshot, billId: string) {
   const live = new Set(s.orders.filter((o) => o.bill_id === billId && (o.status === "accepted" || o.status === "served")).map((o) => o.id));
-  return round2(s.order_items.filter((i) => live.has(i.order_id)).reduce((a, i) => a + i.qty * i.unit_price, 0));
+  return round2(s.order_items.filter((i) => live.has(i.order_id) && !i.voided_at).reduce((a, i) => a + i.qty * i.unit_price, 0));
 }
 
 function openBillOf(s: Snapshot, customerId: string) {
@@ -111,7 +114,6 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
     case "start_session": {
       if (s.sessions.some((x) => x.id === p.id)) return s;
       const cid = resolveCustomer(s, p.customer_id);
-      const mode = s.modes.find((m) => m.id === p.mode_id);
       let bills = s.bills;
       const existing = openBillOf(s, cid);
       if (existing) bills = patch(bills, existing.id, () => ({ place_id: p.place_id, session_id: p.id }));
@@ -122,19 +124,19 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
           id: p.id, place_id: p.place_id, booker_customer_id: cid, booking_id: p.booking_id ?? null, kind: p.kind, planned_end: p.kind === "fixed" ? p.planned_end : null,
           group_size: p.group_size ?? null, status: "active", started_at: at, ended_at: null, alert_ack_for: null, billed_minutes: null, room_fee: null, overstay_charged: null, split_mode: null,
         }],
-        segments: [...s.segments, { id: p.segment_id, session_id: p.id, mode_id: p.mode_id, rate: mode?.hourly_rate ?? 0, started_at: at, ended_at: null }],
+        segments: [...s.segments, { id: p.segment_id, session_id: p.id, mode_id: p.mode_id, rate: rateFor(s.modes, s.mode_prices, p.place_id, p.mode_id), started_at: at, ended_at: null }],
         bills,
         bookings: p.booking_id ? patch(s.bookings, p.booking_id, () => ({ status: "started" as const, session_id: p.id })) : s.bookings,
       };
     }
     case "change_mode": {
       if (s.segments.some((g) => g.id === p.segment_id)) return s;
-      const mode = s.modes.find((m) => m.id === p.mode_id);
+      const placeId = s.sessions.find((x) => x.id === p.session_id)?.place_id;
       return {
         ...s,
         segments: [
           ...s.segments.map((g) => (g.session_id === p.session_id && !g.ended_at ? { ...g, ended_at: at } : g)),
-          { id: p.segment_id, session_id: p.session_id, mode_id: p.mode_id, rate: mode?.hourly_rate ?? 0, started_at: at, ended_at: null },
+          { id: p.segment_id, session_id: p.session_id, mode_id: p.mode_id, rate: rateFor(s.modes, s.mode_prices, placeId, p.mode_id), started_at: at, ended_at: null },
         ],
       };
     }
@@ -243,6 +245,17 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
           group_size: p.group_size ?? null, note: p.note ?? "", status: "confirmed", source: "staff", session_id: null, created_at: at,
         }],
       };
+    case "edit_item": {
+      const q = Number(p.qty);
+      return {
+        ...s,
+        order_items: s.order_items.map((i) =>
+          i.id !== p.item_id || i.voided_at ? i : q === 0 ? { ...i, voided_at: at, void_reason: p.reason } : { ...i, qty: q },
+        ),
+      };
+    }
+    case "transfer_booker":
+      return { ...s, sessions: patch(s.sessions, p.session_id, () => ({ booker_customer_id: resolveCustomer(s, p.customer_id) })) };
     case "set_item_available":
       return { ...s, items: patch(s.items, p.menu_item_id, () => ({ available: !!p.available })) };
     default:

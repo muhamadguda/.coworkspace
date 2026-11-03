@@ -132,7 +132,11 @@ export type OrderItem = {
   qty: number;
   options: ChosenOption[];
   note: string;
+  voided_at?: string | null;
+  void_reason?: string | null;
 };
+
+export type ModePrice = { place_id: string; mode_id: string; hourly_rate: number };
 
 export type Payment = {
   id: string;
@@ -197,6 +201,7 @@ export type Snapshot = {
   last_cash_day: CashDay | null;
   cash_outs: CashOut[];
   staff: StaffProfile[];
+  mode_prices?: ModePrice[];
 };
 
 export type Catalog = {
@@ -206,6 +211,7 @@ export type Catalog = {
   modes: Mode[];
   places: (Place & { busy: boolean })[];
   schedule: { place_id: string; starts_at: string; duration_minutes: number }[];
+  mode_prices?: ModePrice[];
 };
 
 // What a cart line sends to the server

@@ -11,7 +11,7 @@ export const billsAtPlace = (s: Snapshot, placeId: string) => openBills(s).filte
 export const billsInSession = (s: Snapshot, sessionId: string) => s.bills.filter((b) => b.session_id === sessionId && b.status === "open");
 export const openBillOfCustomer = (s: Snapshot, customerId: string) => s.bills.find((b) => b.customer_id === (s.aliases?.[customerId] ?? customerId) && b.status === "open");
 export const itemsOf = (s: Snapshot, orderId: string): OrderItem[] => s.order_items.filter((i) => i.order_id === orderId);
-export const orderTotal = (s: Snapshot, orderId: string) => round2(itemsOf(s, orderId).reduce((a, i) => a + i.qty * i.unit_price, 0));
+export const orderTotal = (s: Snapshot, orderId: string) => round2(itemsOf(s, orderId).filter((i) => !i.voided_at).reduce((a, i) => a + i.qty * i.unit_price, 0));
 export const ordersOfBill = (s: Snapshot, billId: string): Order[] => s.orders.filter((o) => o.bill_id === billId).sort((a, b) => a.created_at.localeCompare(b.created_at));
 export const billItemsTotal = itemsTotalFor;
 

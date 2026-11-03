@@ -52,7 +52,7 @@ export function CheckoutSheet({ bill, onClose }: { bill: Bill; onClose: () => vo
   const canSubmit = balanced && !overpaid && !pendingNew && (tot.discountAmount === 0 || discReason.trim()) && (!needsOwner || (ownerPhone && ownerPw && online));
 
   const lines = useMemo(
-    () => ordersOfBill(snap, bill.id).filter((o) => o.status === "accepted" || o.status === "served").flatMap((o) => itemsOf(snap, o.id)),
+    () => ordersOfBill(snap, bill.id).filter((o) => o.status === "accepted" || o.status === "served").flatMap((o) => itemsOf(snap, o.id).filter((i) => !i.voided_at)),
     [snap, bill.id],
   );
 

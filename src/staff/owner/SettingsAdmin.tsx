@@ -18,6 +18,7 @@ export function SettingsAdmin() {
       {!online ? <p className="text-busy font-semibold">{t("m.onlineOnly")}</p> : null}
       <GeneralSettingsKeyed />
       <ModesSettings />
+      <RoomPrices />
       <PlacesSettings />
     </div>
   );
@@ -129,6 +130,88 @@ function ModesSettings() {
           <Toggle checked={!!edit.active} onChange={(x) => setEdit({ ...edit, active: x })} label={t("st.active")} />
         </Sheet>
       ) : null}
+    </Card>
+  );
+}
+
+/** Per-room price for each mode. Blank cells use the mode's default price. */
+function RoomPrices() {
+  const { t, n, money } = useI18n();
+  const snap = useSnap();
+  const online = useOnline();
+  const toast = useToast();
+  const errText = useErrorText();
+  const rooms = snap.places.filter((p) => p.kind === "room" && p.active);
+  const modes = snap.modes.filter((m) => m.active);
+  const key = (r: string, m: string) => `${r}:${m}`;
+  const [cells, setCells] = useState<Record<string, string>>(() =>
+    Object.fromEntries((snap.mode_prices ?? []).map((x) => [key(x.place_id, x.mode_id), String(x.hourly_rate)])),
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const upserts: { place_id: string; mode_id: string; hourly_rate: number }[] = [];
+    const deletes: { place_id: string; mode_id: string }[] = [];
+    for (const r of rooms)
+      for (const m of modes) {
+        const v = (cells[key(r.id, m.id)] ?? "").trim();
+        if (v === "") deletes.push({ place_id: r.id, mode_id: m.id });
+        else upserts.push({ place_id: r.id, mode_id: m.id, hourly_rate: Math.max(0, Number(v) || 0) });
+      }
+    const sb = supabase();
+    try {
+      if (upserts.length) {
+        const { error } = await sb.from("room_mode_prices").upsert(upserts);
+        if (error) throw error;
+      }
+      for (const d of deletes) {
+        if (!(snap.mode_prices ?? []).some((x) => x.place_id === d.place_id && x.mode_id === d.mode_id)) continue;
+        const { error } = await sb.from("room_mode_prices").delete().eq("place_id", d.place_id).eq("mode_id", d.mode_id);
+        if (error) throw error;
+      }
+      await refresh();
+      toast(t("common.saved"));
+    } catch (e) {
+      toast(errText(errorCode(e)), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-4 grid gap-3">
+      <SectionTitle action={<Button variant="primary" size="sm" busy={busy} disabled={!online} onClick={save}>{t("common.save")}</Button>}>{t("st.roomPrices")}</SectionTitle>
+      <p className="text-sm text-muted">{t("st.roomPricesHint")}</p>
+      <div className="overflow-x-auto">
+        <table className="text-sm min-w-full">
+          <thead>
+            <tr>
+              <th className="text-start py-2 pe-3"></th>
+              {modes.map((m) => <th key={m.id} className="text-start py-2 pe-3 font-semibold">{n(m)}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y-2 divide-line">
+            {rooms.map((r) => (
+              <tr key={r.id}>
+                <td className="py-2 pe-3 font-semibold whitespace-nowrap">{n(r)}</td>
+                {modes.map((m) => (
+                  <td key={m.id} className="py-2 pe-3">
+                    <Input
+                      aria-label={`${n(r)} · ${n(m)}`}
+                      numeric
+                      className="w-28"
+                      value={cells[key(r.id, m.id)] ?? ""}
+                      placeholder={money(m.hourly_rate)}
+                      onChange={(e) => setCells((c) => ({ ...c, [key(r.id, m.id)]: e.target.value }))}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }

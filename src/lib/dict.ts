@@ -104,6 +104,19 @@ export const dict = {
   "c.book.status.confirmed": ["متأكد", "Confirmed"],
   "c.footer.whatsapp": ["واتساب", "WhatsApp"],
 
+  // notifications
+  "n.order": ["بلّغني لما طلبي يجهز", "Notify me when it's ready"],
+  "n.booking": ["بلّغني لما الحجز يتأكد", "Notify me when it's confirmed"],
+  "n.room": ["بلّغني لما تفضى", "Notify me when it's free"],
+  "n.on": ["تمام، هنبلغك.", "Done, we'll notify you."],
+  "n.ios": ["على الآيفون: دوس مشاركة ← أضف للشاشة الرئيسية، وافتح dot من هناك عشان التنبيهات تشتغل.", "On iPhone: tap Share → Add to Home Screen, then open dot from there to turn on notifications."],
+  "n.blocked": ["التنبيهات مقفولة من إعدادات المتصفح.", "Notifications are blocked in your browser settings."],
+  "n.unsupported": ["المتصفح ده مش بيدعم التنبيهات.", "This browser doesn't support notifications."],
+  "n.staffAlerts": ["تنبيهات على الجهاز ده", "Alerts on this device"],
+  "n.staffAlertsHint": ["طلبات جديدة وطلبات حجز. والمالك كمان بيوصله أي مشكلة في السيستم.", "New orders and booking requests. Owners also get app problems."],
+  "n.turnOn": ["شغّل التنبيهات", "Turn on alerts"],
+  "n.turnOff": ["اقفل التنبيهات", "Turn off alerts"],
+
   // errors
   "err.unknown": ["حصلت مشكلة. جرّب تاني.", "Something went wrong. Try again."],
   "err.network": ["مفيش اتصال. اتأكد من النت وجرّب تاني.", "No connection. Check the internet and try again."],
@@ -137,6 +150,11 @@ export const dict = {
   "err.more_than_owed": ["المبلغ أكبر من المديونية.", "That's more than the customer owes."],
   "err.cannot_demote_self": ["مينفعش تشيل صلاحية المالك من نفسك.", "You can't remove your own owner access."],
   "err.bad_password": ["الباسورد الحالي غلط.", "Current password is wrong."],
+  "err.has_debt_payments": ["الحساب ده اتسدد عليه آجل. مينفعش يتفتح.", "Debt was already paid on this bill; it can't be reopened."],
+  "err.bill_not_closed": ["الحساب مش مقفول.", "This bill isn't closed."],
+  "err.not_in_session": ["الشخص ده مش في الأوضة.", "That person isn't in this room."],
+  "err.order_not_cancellable": ["مينفعش تعدل الطلب ده.", "This order can't be changed."],
+  "err.bill_closed": ["الحساب اتقفل خلاص.", "The bill is already closed."],
   "err.offline_owner": ["موافقة المالك محتاجة نت.", "Owner approval needs an internet connection."],
 
   // staff: auth & shell
@@ -262,6 +280,14 @@ export const dict = {
   "bl.counterBill": ["حساب كاونتر / تيك أواي", "Counter / takeaway bill"],
   "bl.items": ["الطلبات", "Items"],
   "bl.roomShare": ["نصيبه من الأوضة", "Room share"],
+  "bl.leavesNow": ["ماشي دلوقتي · يدفع حسابه", "Leaving now · pay own items"],
+  "bl.handover": ["انقل الحجز لحد تاني", "Hand over the booking"],
+  "bl.handoverHint": ["صاحب الحجز الجديد هو اللي هيدفع الأوضة في الآخر.", "The new booker settles the room at the end."],
+  "bl.editItem": ["تعديل صنف", "Edit item"],
+  "bl.removeItem": ["شيل الصنف", "Remove item"],
+  "bl.reopen": ["افتح الحساب تاني", "Reopen bill"],
+  "bl.reopened": ["الحساب اتفتح تاني. صلّحه واقفله.", "Bill reopened. Fix it and close it again."],
+  "bl.reopenHint": ["المدفوعات بتاعته هتتشال وتتسجل في السجل، والحساب يرجع مفتوح عشان تصلّحه وتقفله تاني.", "Its payments are removed (and logged), and the bill goes back to open so you can correct it and close it again."],
   "bl.roomRunning": ["الأوضة لسه شغالة", "Room session still running"],
 
   // checkout
@@ -382,6 +408,8 @@ export const dict = {
   "st.modes": ["أنواع الاستخدام والأسعار", "Modes & hourly prices"],
   "st.newMode": ["نوع جديد", "New mode"],
   "st.rate": ["سعر الساعة", "Price per hour"],
+  "st.roomPrices": ["أسعار كل أوضة", "Prices per room"],
+  "st.roomPricesHint": ["سيب الخانة فاضية عشان تستخدم السعر الأساسي للنوع.", "Leave a cell empty to use the mode's default price."],
   "st.places": ["الأوض والترابيزات", "Rooms & tables"],
   "st.newRoom": ["أوضة جديدة", "New room"],
   "st.newTable": ["ترابيزة جديدة", "New table"],
@@ -430,6 +458,11 @@ export const dict = {
   "rp.cashOuts": ["مصروفات الدرج", "Cash taken out"],
   "rp.cancellations": ["طلبات اتلغت", "Cancelled orders"],
   "rp.empty": ["مفيش بيانات في الفترة دي.", "No data for this period."],
+  "rp.exportCsv": ["تصدير CSV", "Export CSV"],
+  "rp.voided": ["أصناف اتشالت", "Removed items"],
+  "rp.health": ["حالة السيستم", "System health"],
+  "rp.healthOk": ["مفيش مشاكل مسجلة في آخر ٣٠ يوم.", "No errors recorded in the last 30 days."],
+  "rp.healthHint": ["فعّل التنبيهات من اسمك فوق عشان توصلك أي مشكلة على موبايلك.", "Turn on alerts from your name (top right) to get problems pushed to your phone."],
   "rp.load": ["اعرض", "Show"],
 
   // setup

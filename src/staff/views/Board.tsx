@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
+import { rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, StatusDot, cx } from "@/components/ui";
 import { activeSessionAt, billRunningTotal, billsAtPlace, billsInSession, customerById, liveRoomFee, segmentsOf, upcomingBookingFor } from "../derive";
@@ -208,7 +209,7 @@ function SessionControls({ session, onEnd }: { session: Session; onEnd: () => vo
           <Field label={t("ss.changeMode")}>
             <Select id="sess-mode" value={current?.mode_id} onChange={(e) => e.target.value !== current?.mode_id && dispatch("change_mode", { session_id: session.id, mode_id: e.target.value, segment_id: uuid() })}>
               {snap.modes.filter((m) => m.active || m.id === current?.mode_id).map((m) => (
-                <option key={m.id} value={m.id}>{n(m)} · {money(m.hourly_rate)}{t("common.perHour")}</option>
+                <option key={m.id} value={m.id}>{n(m)} · {money(rateFor(snap.modes, snap.mode_prices, session.place_id, m.id))}{t("common.perHour")}</option>
               ))}
             </Select>
           </Field>

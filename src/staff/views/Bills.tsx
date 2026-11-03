@@ -1,7 +1,11 @@
 "use client";
 
-import { useI18n } from "@/lib/i18n";
-import { Button, Card, Empty, SectionTitle } from "@/components/ui";
+import { useState } from "react";
+import { useErrorText, useI18n } from "@/lib/i18n";
+import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
+import { Button, Card, Empty, Field, Input, SectionTitle, Sheet, useToast } from "@/components/ui";
+import { refresh } from "../store";
+import { useIsOwner, useOnline } from "../hooks";
 import { customerById, openBills, placeById } from "../derive";
 import { useSnap } from "../hooks";
 import { BillCard } from "../components/BillCard";
@@ -15,6 +19,26 @@ export function BillsView() {
     const pb = placeById(snap, b.place_id);
     return (pa?.kind ?? "z").localeCompare(pb?.kind ?? "z") || (pa?.sort ?? 99) - (pb?.sort ?? 99) || a.opened_at.localeCompare(b.opened_at);
   });
+  const isOwner = useIsOwner();
+  const online = useOnline();
+  const toast = useToast();
+  const errText = useErrorText();
+  const [reopening, setReopening] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function reopen() {
+    setBusy(true);
+    try {
+      await rpc("owner_reopen_bill", { p_bill: reopening, p_reason: reason.trim() });
+      await refresh();
+      toast(t("bl.reopened"));
+      setReopening(null);
+    } catch (e) {
+      toast(errText(isNetworkError(e) ? "network" : errorCode(e)), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
   const closed = snap.bills.filter((b) => b.status === "closed").sort((a, b) => (b.closed_at ?? "").localeCompare(a.closed_at ?? "")).slice(0, 30);
 
   return (
@@ -39,6 +63,7 @@ export function BillsView() {
                   <div className="flex items-center gap-2">
                     <span className="num font-bold">{money(b.total)}</span>
                     <Button size="sm" onClick={() => printBill(snap, b, lang, t)}>{t("bl.reprint")}</Button>
+                    {isOwner ? <Button size="sm" disabled={!online} onClick={() => { setReason(""); setReopening(b.id); }}>{t("bl.reopen")}</Button> : null}
                   </div>
                 </div>
               );
@@ -48,6 +73,12 @@ export function BillsView() {
           <Empty>{t("common.none")}</Empty>
         )}
       </section>
+      <Sheet open={!!reopening} onClose={() => setReopening(null)} title={t("bl.reopen")} footer={<Button variant="danger" busy={busy} disabled={!reason.trim()} onClick={reopen}>{t("bl.reopen")}</Button>}>
+        <p className="text-sm">{t("bl.reopenHint")}</p>
+        <Field label={t("d.reason")}>
+          <Input id="reopen-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />
+        </Field>
+      </Sheet>
     </div>
   );
 }

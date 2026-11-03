@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
 import { splitEqual } from "@/lib/billing";
+import { rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, Sheet, Toggle, cx } from "@/components/ui";
 import { billsInSession, customerById, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
@@ -78,7 +79,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
       )}
 
       <Field group label={t("ss.mode")}>
-        <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(m.hourly_rate)}</span></span> }))} />
+        <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(rateFor(snap.modes, snap.mode_prices, place.id, m.id))}</span></span> }))} />
       </Field>
       <Field group label={t("ss.timing")}>
         <Segmented value={kind} onChange={setKind} options={[{ value: "open", label: t("ss.open") }, { value: "fixed", label: t("ss.fixed") }]} />

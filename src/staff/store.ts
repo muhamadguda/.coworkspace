@@ -10,6 +10,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { errorCode, isAuthError, isNetworkError, rpc, supabase } from "@/lib/supabase";
 import type { Snapshot } from "@/lib/types";
 import { applyOp, type Op, type OpType } from "./reducer";
+import { reportError } from "@/lib/report";
 
 type QueuedOp = Op & { state: "pending" | "sent"; sentAt?: number };
 export type FailedOp = { op: Op; code: string; at: number };
@@ -210,6 +211,7 @@ async function flush() {
         }
         // The server refused it: drop it, tell the counter, and resync.
         set({ queue: state.queue.filter((q) => q.id !== next.id), failed: [...state.failed, { op, code: errorCode(e), at: Date.now() }] });
+        reportError("sync", `Counter change rejected: ${op.type} (${errorCode(e)})`, JSON.stringify(op.payload).slice(0, 2000), state.base?.me.user_id);
       }
     }
   } finally {

@@ -20,6 +20,9 @@ export function BillCard({ bill, compact }: { bill: Bill; compact?: boolean }) {
   const [checkout, setCheckout] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("1");
+  const [handover, setHandover] = useState(false);
   const cust = customerById(snap, bill.customer_id);
   const place = placeById(snap, bill.place_id);
   const orders = ordersOfBill(snap, bill.id).filter((o) => o.status !== "rejected");
@@ -49,13 +52,21 @@ export function BillCard({ bill, compact }: { bill: Bill; compact?: boolean }) {
           {orders.map((o) => (
             <li key={o.id} className={cx("grid gap-0.5 border-s-4 ps-2", o.status === "cancelled" ? "border-line opacity-50 line-through" : o.status === "new" ? "border-warn" : o.status === "served" ? "border-free" : "border-accent")}>
               {itemsOf(snap, o.id).map((i) => (
-                <div key={i.id} className="flex justify-between gap-2 text-sm">
+                <div key={i.id} className={cx("flex justify-between gap-2 text-sm", i.voided_at && "line-through opacity-50")}>
                   <span className="min-w-0">
                     <span className="num">{i.qty}×</span> {lang === "ar" ? i.name_ar : i.name_en}
                     {i.options.length ? <span className="text-muted"> · {i.options.map((x) => (lang === "ar" ? x.choice_ar : x.choice_en)).join(" · ")}</span> : null}
                     {i.note ? <span className="text-muted"> · {i.note}</span> : null}
+                    {i.voided_at && i.void_reason ? <span className="text-muted no-underline"> · {i.void_reason}</span> : null}
                   </span>
-                  <span className="num shrink-0">{money(i.qty * i.unit_price)}</span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="num">{money(i.qty * i.unit_price)}</span>
+                    {!i.voided_at && (o.status === "accepted" || o.status === "served") ? (
+                      <button type="button" className="text-xs font-semibold underline text-muted" onClick={() => { setEditing(i.id); setEditQty(String(i.qty)); setReason(""); }}>
+                        {t("common.edit")}
+                      </button>
+                    ) : null}
+                  </span>
                 </div>
               ))}
               {o.status !== "cancelled" ? (
@@ -88,14 +99,74 @@ export function BillCard({ bill, compact }: { bill: Bill; compact?: boolean }) {
         <Button size="sm" variant="accent" onClick={() => setPad(true)}>{t("o.addItems")}</Button>
         <Button size="sm" onClick={() => setMoving(true)}>{t("bl.move")}</Button>
         <Button size="sm" onClick={() => printBill(snap, bill, lang, t, { preBill: true })}>{t("r.preBill")}</Button>
-        <Button size="sm" variant="primary" disabled={sess?.status === "active"} title={sess?.status === "active" ? t("bl.roomRunning") : undefined} onClick={() => setCheckout(true)}>
+        <Button size="sm" variant="primary" disabled={sess?.status === "active" && isBooker} title={sess?.status === "active" && isBooker ? t("bl.roomRunning") : undefined} onClick={() => setCheckout(true)}>
           {t("bl.checkout")}
         </Button>
       </div>
-      {sess?.status === "active" && isBooker ? <p className="text-xs text-muted">{t("bl.roomRunning")}</p> : null}
+      {sess?.status === "active" && !isBooker ? (
+        <Button
+          size="sm"
+          className="justify-self-start"
+          onClick={() => setCheckout(true)}
+        >
+          {t("bl.leavesNow")}
+        </Button>
+      ) : null}
+      {sess?.status === "active" && isBooker ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs text-muted">{t("bl.roomRunning")}</p>
+          {snap.bills.some((b) => b.session_id === sess.id && b.status === "open" && b.id !== bill.id) ? (
+            <Button size="sm" variant="ghost" onClick={() => setHandover(true)}>{t("bl.handover")}</Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {pad ? <OrderPad billId={bill.id} title={title} open={pad} onClose={() => setPad(false)} /> : null}
       {checkout ? <CheckoutSheet bill={bill} onClose={() => setCheckout(false)} /> : null}
+      {editing ? (
+        <Sheet
+          open
+          onClose={() => setEditing(null)}
+          title={t("bl.editItem")}
+          footer={
+            <>
+              <Button variant="danger" disabled={!reason.trim()} onClick={() => { dispatch("edit_item", { item_id: editing, qty: 0, reason: reason.trim() }); setEditing(null); }}>
+                {t("bl.removeItem")}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!reason.trim() || !(Number(editQty) >= 1 && Number(editQty) <= 50)}
+                onClick={() => { dispatch("edit_item", { item_id: editing, qty: Number(editQty), reason: reason.trim() }); setEditing(null); }}
+              >
+                {t("common.save")}
+              </Button>
+            </>
+          }
+        >
+          <p className="font-semibold">{(() => { const it = snap.order_items.find((x) => x.id === editing); return it ? (lang === "ar" ? it.name_ar : it.name_en) : ""; })()}</p>
+          <Field label={t("common.qty")}>
+            <Input id="edit-qty" numeric inputMode="numeric" value={editQty} onChange={(e) => setEditQty(e.target.value.replace(/\D/g, "").slice(0, 2))} />
+          </Field>
+          <Field label={t("d.reason")}>
+            <Input id="edit-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />
+          </Field>
+        </Sheet>
+      ) : null}
+      {handover && sess ? (
+        <Sheet open onClose={() => setHandover(false)} title={t("bl.handover")}>
+          <p className="text-sm text-muted">{t("bl.handoverHint")}</p>
+          <div className="grid gap-2">
+            {snap.bills.filter((b) => b.session_id === sess.id && b.status === "open" && b.id !== bill.id).map((b) => {
+              const c = customerById(snap, b.customer_id);
+              return (
+                <Button key={b.id} onClick={() => { dispatch("transfer_booker", { session_id: sess.id, customer_id: b.customer_id }); setHandover(false); }}>
+                  {c?.name || c?.phone}
+                </Button>
+              );
+            })}
+          </div>
+        </Sheet>
+      ) : null}
       <MoveSheet open={moving} onClose={() => setMoving(false)} billId={bill.id} currentPlace={bill.place_id} />
 
       <Sheet

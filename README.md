@@ -65,7 +65,13 @@ npm run lint && npm run typecheck
 
 Database changes go in a new file under `supabase/migrations/`. Apply it with the Supabase CLI (`supabase db push`) or the dashboard SQL editor.
 
+## Background jobs and push
+
+- `vercel.json` runs `/api/keepalive` every 3 days (Vercel Cron). It adds and removes a row in `public.keepalive`, so the free Supabase project never hits the 7-day inactivity pause. Every 3 days leaves room for one missed run.
+- Push notifications: database triggers (orders, bookings, room sessions) build messages and post them through `pg_net` to `/api/push`, which signs them with the VAPID key and delivers. Browser errors and rejected counter syncs go to `/api/errors`. They are stored in `public.app_errors` and pushed to owner devices.
+- Vercel env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `PUSH_SECRET` (also stored in `public.app_secrets`), `CRON_SECRET`.
+
 ## Security notes
 
 - Browsers only hold the **publishable** key. Customers can only call the `customer_*` and `public_*` functions; everything else checks `is_staff()` / `is_owner()` in the database.
-- In the Supabase dashboard, **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**. Staff accounts are created by the owner from the Team screen. Signed-up strangers get nothing (they are not staff), but there is no reason to allow it.
+- Self sign-ups are blocked in the database: a trigger on `auth.users` only allows accounts created by the owner setup or the Team screen.

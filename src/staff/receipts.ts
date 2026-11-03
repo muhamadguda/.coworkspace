@@ -19,7 +19,7 @@ export function printBill(snap: Snapshot, bill: Bill, lang: Lang, t: T, opts: { 
   const lines: ReceiptLine[] = [];
   for (const o of ordersOfBill(snap, bill.id)) {
     if (o.status !== "accepted" && o.status !== "served") continue;
-    for (const i of itemsOf(snap, o.id)) {
+    for (const i of itemsOf(snap, o.id).filter((x) => !x.voided_at)) {
       lines.push({ label: nm(i), qty: i.qty, amount: i.qty * i.unit_price, sub: i.options.map((x) => (lang === "ar" ? x.choice_ar : x.choice_en)).join(" · ") || undefined });
     }
   }

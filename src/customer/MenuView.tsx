@@ -8,6 +8,7 @@ import { round2 } from "@/lib/billing";
 import type { CartLine, Catalog, ChosenOption, MenuItem, OrderStatus } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, Sheet, Textarea, cx, useToast } from "@/components/ui";
 import { addMyOrder, getIdentity, getMyOrders, setIdentity, type QrPlace } from "./local";
+import { NotifyButton } from "@/components/NotifyButton";
 
 export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; place: QrPlace | null; onRefresh: () => void }) {
   const { t, n, money } = useI18n();
@@ -15,7 +16,7 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
   const [picking, setPicking] = useState<MenuItem | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [activeCat, setActiveCat] = useState<string | null>(null);
-  const [sent, setSent] = useState<{ code: string | null } | null>(null);
+  const [sent, setSent] = useState<{ code: string | null; orderId: string } | null>(null);
   const [ordersTick, setOrdersTick] = useState(0);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -107,10 +108,10 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
         catalog={catalog}
         place={place}
         total={cartTotal}
-        onSent={(code) => {
+        onSent={(code, orderId) => {
           setCart([]);
           setReviewing(false);
-          setSent({ code });
+          setSent({ code, orderId });
           setOrdersTick((x) => x + 1);
           onRefresh();
         }}
@@ -118,6 +119,7 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
 
       <Sheet open={!!sent} onClose={() => setSent(null)} title={t("c.orderSent")} footer={<Button variant="primary" onClick={() => setSent(null)}>{t("common.close")}</Button>}>
         <p>{t("c.orderSentHint")}</p>
+        {sent ? <NotifyButton kind="order" refId={sent.orderId} label={t("n.order")} className="justify-self-start" /> : null}
         {sent?.code ? (
           <Card className="p-4 grid gap-1 text-center border-strong">
             <span className="text-sm text-muted">{t("c.yourCodeIs")}</span>
@@ -210,7 +212,7 @@ function OptionSheetBody({ item, onClose, onAdd }: { item: MenuItem; onClose: ()
 }
 
 type CheckoutProps = {
-  open: boolean; onClose: () => void; cart: CartLine[]; setCart: (f: (c: CartLine[]) => CartLine[]) => void; catalog: Catalog; place: QrPlace | null; total: number; onSent: (code: string | null) => void;
+  open: boolean; onClose: () => void; cart: CartLine[]; setCart: (f: (c: CartLine[]) => CartLine[]) => void; catalog: Catalog; place: QrPlace | null; total: number; onSent: (code: string | null, orderId: string) => void;
 };
 
 function CheckoutSheet(props: CheckoutProps) {
@@ -253,7 +255,7 @@ function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, total
         name: name.trim() || res.name || prev.name,
       });
       addMyOrder(res.order_id);
-      onSent(res.customer_code);
+      onSent(res.customer_code, res.order_id);
     } catch (e) {
       const c = isNetworkError(e) ? "network" : errorCode(e);
       setError(errText(c));

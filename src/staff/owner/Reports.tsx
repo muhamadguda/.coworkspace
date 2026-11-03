@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
-import { errorCode, rpc } from "@/lib/supabase";
+import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { businessDay, round2 } from "@/lib/billing";
 import { Button, Card, Empty, Field, Input, SectionTitle, Segmented, Spinner, cx } from "@/components/ui";
 import { useSnap } from "../hooks";
@@ -21,7 +21,35 @@ type Report = {
   cash_days: { business_day: string; opening_float: number; closing_counted: number | null; expected_cash: number | null }[];
   cash_outs: { day: string; amount: number; reason: string; by: string; at: string }[];
   cancellations: { order_id: string; reason: string; by: string; at: string; amount: number }[];
+  voided_items?: { name_ar: string; name_en: string; qty: number; amount: number; reason: string; by: string; at: string }[];
 };
+
+type AppError = { id: number; at: string; source: string; message: string; url: string | null };
+
+function csvCell(v: unknown) {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** One CSV with a section per table; UTF-8 BOM so Excel shows Arabic correctly. */
+function downloadCsv(name: string, sections: { title: string; head: string[]; rows: unknown[][] }[]) {
+  const lines: string[] = [];
+  for (const s of sections) {
+    lines.push(csvCell(s.title));
+    lines.push(s.head.map(csvCell).join(","));
+    for (const r of s.rows) lines.push(r.map(csvCell).join(","));
+    lines.push("");
+  }
+  const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
 
 const addDays = (d: string, n: number) => {
   const x = new Date(`${d}T12:00:00Z`);
@@ -70,6 +98,34 @@ export function Reports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [errors, setErrors] = useState<AppError[] | null>(null);
+  useEffect(() => {
+    supabase().from("app_errors").select("id, at, source, message, url").order("at", { ascending: false }).limit(30)
+      .then(({ data: rows }) => setErrors((rows as AppError[]) ?? []));
+  }, []);
+
+  function exportCsv() {
+    if (!data) return;
+    const nmx = (o: { name_ar: string; name_en: string }) => (lang === "ar" ? o.name_ar : o.name_en);
+    downloadCsv(`dot-report-${data.from}_${data.to}.csv`, [
+      { title: t("rp.revenue"), head: ["metric", "EGP"], rows: [
+        [t("rp.revenue"), data.bills.total], [t("rp.bills"), data.bills.count], [t("rp.items"), data.bills.items_total], [t("rp.roomFees"), data.bills.room_fees],
+        [t("rp.discounts"), data.bills.discounts], [t("rp.payLater"), data.bills.pay_later], [t("rp.debtCollected"), data.debt_collected],
+        [t("co.cash"), m.cash ?? 0], [t("co.instapay"), m.instapay ?? 0], [t("co.vf_cash"), m.vf_cash ?? 0],
+      ] },
+      { title: t("rp.byDay"), head: ["day", "bills", "total"], rows: data.by_day.map((d) => [d.day, d.bills, d.total]) },
+      { title: t("rp.roomUsage"), head: ["room", "mode", "minutes", "sessions"], rows: data.room_usage.map((r) => [nmx(r), lang === "ar" ? r.mode_ar : r.mode_en, r.minutes, r.sessions]) },
+      { title: t("rp.roomFees"), head: ["room", "sessions", "fee"], rows: data.room_fees_by_room.map((r) => [nmx(r), r.sessions, r.fee]) },
+      { title: t("rp.topItems"), head: ["item", "qty", "revenue"], rows: data.top_items.map((r) => [nmx(r), r.qty, r.revenue]) },
+      { title: t("rp.discounts"), head: ["day", "customer", "phone", "reason", "by", "amount"], rows: data.discounts.map((r) => [r.day, r.customer, r.phone, r.reason, r.by, r.amount]) },
+      { title: t("rp.debts"), head: ["name", "phone", "outstanding", "limit"], rows: data.debts.map((r) => [r.name, r.phone, r.outstanding, r.debt_limit]) },
+      { title: t("rp.cashDays"), head: ["day", "opening", "expected", "counted"], rows: data.cash_days.map((r) => [r.business_day, r.opening_float, r.expected_cash, r.closing_counted]) },
+      { title: t("rp.cashOuts"), head: ["day", "reason", "by", "amount"], rows: data.cash_outs.map((r) => [r.day, r.reason, r.by, r.amount]) },
+      { title: t("rp.cancellations"), head: ["at", "reason", "by", "amount"], rows: data.cancellations.map((r) => [r.at, r.reason, r.by, r.amount]) },
+      { title: t("rp.voided"), head: ["at", "item", "qty", "reason", "by", "amount"], rows: (data.voided_items ?? []).map((r) => [r.at, nmx(r), r.qty, r.reason, r.by, r.amount]) },
+    ]);
+  }
+
   const m = data?.payments_by_method ?? {};
   const collected = round2((m.cash ?? 0) + (m.instapay ?? 0) + (m.vf_cash ?? 0));
   const maxDay = Math.max(1, ...(data?.by_day.map((d) => d.total) ?? [1]));
@@ -90,6 +146,7 @@ export function Reports() {
           </>
         ) : null}
         {busy ? <Spinner /> : null}
+        <Button size="sm" className="ms-auto" disabled={!data} onClick={exportCsv}>{t("rp.exportCsv")}</Button>
       </div>
       {error ? <p className="text-busy font-semibold">{error}</p> : null}
 
@@ -147,9 +204,26 @@ export function Reports() {
             <Table title={t("rp.cancellations")} empty={!data.cancellations.length} empty_text={t("rp.empty")}>
               {data.cancellations.map((r) => <Tr key={r.order_id} cells={[time(r.at), r.reason, r.by, money(r.amount)]} />)}
             </Table>
+            <Table title={t("rp.voided")} empty={!(data.voided_items ?? []).length} empty_text={t("rp.empty")}>
+              {(data.voided_items ?? []).map((r, i) => <Tr key={i} cells={[time(r.at), `${nm(r)} × ${r.qty}`, r.reason, r.by, money(r.amount)]} />)}
+            </Table>
           </div>
         </>
       ) : !busy ? <Empty>{t("rp.empty")}</Empty> : null}
+
+      <Card className="p-4 grid gap-2">
+        <h3 className="font-semibold">{t("rp.health")}</h3>
+        {errors === null ? <Spinner /> : errors.length === 0 ? (
+          <p className="text-sm text-free font-semibold">{t("rp.healthOk")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm"><tbody className="divide-y-2 divide-line">
+              {errors.map((e) => <Tr key={e.id} cells={[`${new Date(e.at).toLocaleDateString("en-GB")} ${time(e.at)}`, e.source, e.message]} tone="busy" />)}
+            </tbody></table>
+          </div>
+        )}
+        <p className="text-xs text-muted">{t("rp.healthHint")}</p>
+      </Card>
     </div>
   );
 }

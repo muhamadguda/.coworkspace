@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { rateFor } from "@/lib/pricing";
 import type { Catalog } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, SectionTitle, Sheet, StatusDot, Textarea } from "@/components/ui";
 import { getIdentity, setIdentity } from "./local";
+import { NotifyButton } from "@/components/NotifyButton";
 
 // Builds an ISO timestamp from a Cairo wall-clock date + time.
 function cairoToIso(date: string, time: string): string {
@@ -41,7 +43,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ code: string | null } | null>(null);
+  const [done, setDone] = useState<{ code: string | null; bookingId: string } | null>(null);
 
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => cairoToday(i)), []);
   const schedule = catalog.schedule.filter((s) => s.place_id === roomId);
@@ -62,7 +64,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
       });
       const prev = getIdentity();
       setIdentity({ phone: normalizePhone(phone), code: res.customer_code ?? (prev.phone === normalizePhone(phone) ? prev.code : ""), name: name.trim() || prev.name });
-      setDone({ code: res.customer_code });
+      setDone({ code: res.customer_code, bookingId: res.booking_id });
     } catch (e) {
       setError(errText(isNetworkError(e) ? "network" : errorCode(e)));
     } finally {
@@ -79,8 +81,8 @@ export function BookView({ catalog }: { catalog: Catalog }) {
         {rooms.map((r) => {
           const upcoming = catalog.schedule.filter((s) => s.place_id === r.id).slice(0, 3);
           return (
+            <div key={r.id} className="grid gap-1.5">
             <button
-              key={r.id}
               type="button"
               onClick={() => setRoomId(r.id)}
               aria-pressed={roomId === r.id}
@@ -101,13 +103,15 @@ export function BookView({ catalog }: { catalog: Catalog }) {
                 </div>
               ) : null}
             </button>
+            {r.busy ? <NotifyButton kind="room" refId={r.id} label={t("n.room")} /> : null}
+            </div>
           );
         })}
       </div>
 
       <Card className="p-4 grid gap-4">
         <Field group label={t("c.book.mode")}>
-          <Segmented value={modeId} onChange={setModeId} options={catalog.modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(m.hourly_rate)}</span>{t("common.perHour")}</span> }))} />
+          <Segmented value={modeId} onChange={setModeId} options={catalog.modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(rateFor(catalog.modes, catalog.mode_prices, roomId, m.id))}</span>{t("common.perHour")}</span> }))} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label={t("c.book.date")}>
@@ -160,6 +164,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
 
       <Sheet open={!!done} onClose={() => setDone(null)} title={t("c.book.sent")} footer={<Button variant="primary" onClick={() => setDone(null)}>{t("common.close")}</Button>}>
         <p>{t("c.book.hint")}</p>
+        {done ? <NotifyButton kind="booking" refId={done.bookingId} label={t("n.booking")} className="justify-self-start" /> : null}
         {done?.code ? (
           <Card className="p-4 grid gap-1 text-center border-strong">
             <span className="text-sm text-muted">{t("c.yourCodeIs")}</span>

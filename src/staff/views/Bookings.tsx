@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { rateFor } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Select, Sheet, Textarea } from "@/components/ui";
 import { customerById, placeById } from "../derive";
@@ -62,7 +63,7 @@ function BookingCard({ b }: { b: Booking }) {
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>{c?.name || "—"} <span className="num text-muted">{c?.phone}</span></span>
-        {mode ? <span className="num text-muted">≈ {money((mode.hourly_rate * b.duration_minutes) / 60)}</span> : null}
+        {mode ? <span className="num text-muted">≈ {money((rateFor(snap.modes, snap.mode_prices, b.place_id, mode.id) * b.duration_minutes) / 60)}</span> : null}
       </div>
       {b.note ? <p className="text-sm text-muted">{b.note}</p> : null}
       <div className="flex flex-wrap gap-1.5">
@@ -120,7 +121,7 @@ function NewBooking({ onClose }: { onClose: () => void }) {
         <Segmented value={placeId} onChange={setPlaceId} options={rooms.map((r) => ({ value: r.id, label: n(r) }))} />
       </Field>
       <Field group label={t("c.book.mode")}>
-        <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(m.hourly_rate)}</span></span> }))} />
+        <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(rateFor(snap.modes, snap.mode_prices, placeId, m.id))}</span></span> }))} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={`${t("c.book.date")} / ${t("c.book.time")}`}>

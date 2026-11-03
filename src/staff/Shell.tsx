@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, rpc, supabase } from "@/lib/supabase";
+import { currentSubscription, getPushSubscription, pushSupport } from "@/lib/push";
 import { round2 } from "@/lib/billing";
 import { Button, Card, Field, Input, LangSwitch, Logo, Pill, Sheet, cx, useToast } from "@/components/ui";
 import { AlertBar, useAlerts } from "./alerts";
@@ -205,6 +206,60 @@ function FailedOps() {
   );
 }
 
+/** Push alerts for this device: new orders and booking requests (owners also get app errors). */
+function StaffAlerts() {
+  const { t, lang } = useI18n();
+  const toast = useToast();
+  const errText = useErrorText();
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    currentSubscription()
+      .then((sub) => (sub?.endpoint ? rpc<boolean>("staff_push_status", { p_endpoint: sub.endpoint }) : false))
+      .then((v) => setOn(!!v))
+      .catch(() => setOn(false));
+  }, []);
+
+  async function toggle() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const support = pushSupport();
+      if (support !== "ok") {
+        setMsg(t(support === "ios-needs-install" ? "n.ios" : support === "denied" ? "n.blocked" : "n.unsupported"));
+        return;
+      }
+      const sub = await getPushSubscription();
+      if (!sub) {
+        setMsg(t("n.blocked"));
+        return;
+      }
+      await rpc("staff_push_subscribe", { p_sub: sub, p_lang: lang, p_on: !on });
+      setOn(!on);
+      toast(t("common.saved"));
+    } catch (e) {
+      toast(errText(errorCode(e)), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2 border-2 border-line rounded-[2px] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold">{t("n.staffAlerts")}</span>
+        <Button size="sm" variant={on ? "outline" : "accent"} busy={busy} disabled={on === null} onClick={toggle}>
+          {on ? t("n.turnOff") : t("n.turnOn")}
+        </Button>
+      </div>
+      <p className="text-xs text-muted">{t("n.staffAlertsHint")}</p>
+      {msg ? <p className="text-sm text-warn font-semibold">{msg}</p> : null}
+    </div>
+  );
+}
+
 function UserMenu() {
   const { t } = useI18n();
   const errText = useErrorText();
@@ -244,6 +299,7 @@ function UserMenu() {
       </Button>
       <Sheet open={open} onClose={() => setOpen(false)} title={snap.me.name} footer={<Button variant="danger" onClick={logout}>{t("s.logout")}</Button>}>
         <p className="text-sm text-muted num">{snap.me.phone} · {snap.me.role}</p>
+        <StaffAlerts />
         <div className="grid gap-3">
           <h4 className="font-semibold">{t("s.changePassword")}</h4>
           <Field label={t("s.currentPassword")}>
