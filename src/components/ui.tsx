@@ -41,14 +41,20 @@ export function Spinner({ className }: { className?: string }) {
   return <span aria-hidden className={cx("inline-block size-4 rounded-full border-2 border-current border-t-transparent animate-spin", className)} />;
 }
 
-export function Field({ label, hint, error, children, className }: { label?: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <label className={cx("grid gap-1.5 min-w-0", className)}>
+/** Label + control. Use `group` when the control is a set of buttons (it must not be wrapped in a <label>). */
+export function Field({ label, hint, error, children, className, group }: { label?: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string; group?: boolean }) {
+  const body = (
+    <>
       {label ? <span className="text-sm font-semibold text-ink">{label}</span> : null}
       {children}
       {hint ? <span className="text-xs text-muted">{hint}</span> : null}
       {error ? <span className="text-sm text-busy font-medium">{error}</span> : null}
-    </label>
+    </>
+  );
+  return group ? (
+    <div role="group" className={cx("grid gap-1.5 min-w-0", className)}>{body}</div>
+  ) : (
+    <label className={cx("grid gap-1.5 min-w-0", className)}>{body}</label>
   );
 }
 

@@ -86,7 +86,7 @@ function AddStaff({ onClose }: { onClose: () => void }) {
       <Field label={t("common.name")}><Input id="tm-name" value={name} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label={t("common.phone")}><Input id="tm-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
       <Field label={t("s.login.password")} hint={t("err.password_too_short")}><Input id="tm-pw" type="text" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="off" /></Field>
-      <Field label={t("tm.role")}><Segmented value={role} onChange={setRole} options={[{ value: "staff", label: t("tm.staff") }, { value: "owner", label: t("tm.owner") }]} /></Field>
+      <Field group label={t("tm.role")}><Segmented value={role} onChange={setRole} options={[{ value: "staff", label: t("tm.staff") }, { value: "owner", label: t("tm.owner") }]} /></Field>
     </Sheet>
   );
 }

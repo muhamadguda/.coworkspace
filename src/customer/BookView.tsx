@@ -106,7 +106,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
       </div>
 
       <Card className="p-4 grid gap-4">
-        <Field label={t("c.book.mode")}>
+        <Field group label={t("c.book.mode")}>
           <Segmented value={modeId} onChange={setModeId} options={catalog.modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(m.hourly_rate)}</span>{t("common.perHour")}</span> }))} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">

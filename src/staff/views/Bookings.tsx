@@ -116,10 +116,10 @@ function NewBooking({ onClose }: { onClose: () => void }) {
       ) : (
         <CustomerPicker onPick={setCustomerId} />
       )}
-      <Field label={t("c.book.room")}>
+      <Field group label={t("c.book.room")}>
         <Segmented value={placeId} onChange={setPlaceId} options={rooms.map((r) => ({ value: r.id, label: n(r) }))} />
       </Field>
-      <Field label={t("c.book.mode")}>
+      <Field group label={t("c.book.mode")}>
         <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(m.hourly_rate)}</span></span> }))} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">

@@ -77,14 +77,14 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
         <CustomerPicker label={t("ss.booker")} onPick={setCustomerId} />
       )}
 
-      <Field label={t("ss.mode")}>
+      <Field group label={t("ss.mode")}>
         <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(m.hourly_rate)}</span></span> }))} />
       </Field>
-      <Field label={t("ss.timing")}>
+      <Field group label={t("ss.timing")}>
         <Segmented value={kind} onChange={setKind} options={[{ value: "open", label: t("ss.open") }, { value: "fixed", label: t("ss.fixed") }]} />
       </Field>
       {kind === "fixed" ? (
-        <Field label={t("ss.duration")}>
+        <Field group label={t("ss.duration")}>
           <div className="flex flex-wrap gap-1.5">
             {DURATIONS.map((d) => (
               <button key={d} type="button" onClick={() => setMinutes(d)} className={cx("h-10 px-3 rounded-[2px] border-2 font-semibold text-sm", minutes === d ? "bg-strong text-bg border-strong" : "bg-surface border-line")}>
