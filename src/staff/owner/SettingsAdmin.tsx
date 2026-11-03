@@ -216,7 +216,7 @@ function RoomPrices() {
   );
 }
 
-const orderUrl = (token: string) => `${location.origin}/?t=${token}`;
+const orderUrl = (token: string) => `${location.origin}/menu?t=${token}`;
 
 function PlacesSettings() {
   const { t, n, lang } = useI18n();
@@ -259,7 +259,7 @@ function PlacesSettings() {
               <span className="font-semibold">{n(p)}</span>
             </span>
             <span className="flex items-center gap-2">
-              {p.qr_token ? <a className="num text-xs underline text-muted" href={orderUrl(p.qr_token)} target="_blank" rel="noreferrer">/?t={p.qr_token}</a> : null}
+              {p.qr_token ? <a className="num text-xs underline text-muted" href={orderUrl(p.qr_token)} target="_blank" rel="noreferrer">/menu?t={p.qr_token}</a> : null}
               <Button size="sm" disabled={!online} onClick={() => setConfirmRegen(p)}>{t("st.regenQr")}</Button>
               <Button size="sm" disabled={!online} onClick={() => setEdit(p)}>{t("common.edit")}</Button>
             </span>

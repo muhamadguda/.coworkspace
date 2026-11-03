@@ -128,3 +128,48 @@ body {
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
+
+/* ---------- Landing motion ---------- */
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+.landing-rise { animation: landing-rise 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) both; }
+
+@keyframes word-in {
+  from { opacity: 0; transform: translateY(0.35em) rotate(-2deg); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.word-in { display: inline-block; animation: word-in 0.55s cubic-bezier(0.2, 0.7, 0.1, 1) both; }
+
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee { animation: marquee 38s linear infinite; }
+[dir="rtl"] .marquee { animation-direction: reverse; }
+
+@keyframes ripple {
+  from { transform: scale(0.2); opacity: 0.9; }
+  to { transform: scale(6); opacity: 0; }
+}
+.ripple { animation: ripple 0.9s ease-out forwards; }
+
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.live-pulse { animation: live-pulse 1.6s ease-in-out infinite; }
+
+/* Reveal on scroll: only elements the script marked as pending start hidden,
+   so the page is complete without JavaScript. */
+[data-reveal="pending"] { opacity: 0; transform: translateY(32px); }
+[data-reveal="shown"] { opacity: 1; transform: none; transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.1, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise, .word-in, .marquee, .ripple, .live-pulse { animation: none !important; }
+  [data-reveal="pending"] { opacity: 1; transform: none; }
+}
+
+.tile-corners {
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, #eaf0ea 30%, transparent) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 100% 0, color-mix(in srgb, #eaf0ea 30%, transparent) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 0 100%, color-mix(in srgb, #eaf0ea 30%, transparent) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, #eaf0ea 30%, transparent) 0 22%, transparent 22.5%),
+    #173a39;
+}

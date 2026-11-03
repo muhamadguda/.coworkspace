@@ -379,14 +379,14 @@ begin
       array['طلب جديد', 'New order'], array['من ' || pl[1], 'From ' || pl[2]], '/staff#orders', 'orders', false));
   elsif tg_op = 'UPDATE' and new.status is distinct from old.status then
     if new.status = 'accepted' then
-      perform public.push_send(public.push_messages('order', new.id, array['طلبك اتأكد', 'Order confirmed'], array['بيتحضر دلوقتي', 'It''s being prepared now'], '/', 'order-' || new.id));
+      perform public.push_send(public.push_messages('order', new.id, array['طلبك اتأكد', 'Order confirmed'], array['بيتحضر دلوقتي', 'It''s being prepared now'], '/menu', 'order-' || new.id));
     elsif new.status = 'served' then
       perform public.push_send(public.push_messages('order', new.id,
         case when new.place_id is null then array['طلبك جاهز', 'Your order is ready'] else array['طلبك في الطريق', 'Your order is on its way'] end,
-        case when new.place_id is null then array['استلمه من الكاونتر', 'Pick it up at the counter'] else array['هيوصلك ' || pl[1], 'Coming to ' || pl[2]] end, '/', 'order-' || new.id));
+        case when new.place_id is null then array['استلمه من الكاونتر', 'Pick it up at the counter'] else array['هيوصلك ' || pl[1], 'Coming to ' || pl[2]] end, '/menu', 'order-' || new.id));
       delete from public.push_watches where kind = 'order' and ref = new.id;
     elsif new.status = 'rejected' then
-      perform public.push_send(public.push_messages('order', new.id, array['معرفناش نأكد طلبك', 'We couldn''t accept your order'], array['كلم الكاونتر لو محتاج حاجة', 'Ask at the counter if you need anything'], '/', 'order-' || new.id));
+      perform public.push_send(public.push_messages('order', new.id, array['معرفناش نأكد طلبك', 'We couldn''t accept your order'], array['كلم الكاونتر لو محتاج حاجة', 'Ask at the counter if you need anything'], '/menu', 'order-' || new.id));
       delete from public.push_watches where kind = 'order' and ref = new.id;
     end if;
   end if;
@@ -404,9 +404,9 @@ begin
       array['طلب حجز جديد', 'New booking request'], array[pl[1] || ' · ' || t_ar, pl[2] || ' · ' || t_ar], '/staff#bookings', 'bookings', false));
   elsif tg_op = 'UPDATE' and new.status is distinct from old.status then
     if new.status = 'confirmed' then
-      perform public.push_send(public.push_messages('booking', new.id, array['حجزك اتأكد', 'Booking confirmed'], array[pl[1] || ' · ' || t_ar, pl[2] || ' · ' || t_ar], '/?tab=bill', 'booking-' || new.id));
+      perform public.push_send(public.push_messages('booking', new.id, array['حجزك اتأكد', 'Booking confirmed'], array[pl[1] || ' · ' || t_ar, pl[2] || ' · ' || t_ar], '/menu?tab=bill', 'booking-' || new.id));
     elsif new.status in ('rejected', 'cancelled') then
-      perform public.push_send(public.push_messages('booking', new.id, array['الحجز مش متاح', 'Booking not available'], array[pl[1] || ' · ' || t_ar, pl[2] || ' · ' || t_ar], '/?tab=book', 'booking-' || new.id));
+      perform public.push_send(public.push_messages('booking', new.id, array['الحجز مش متاح', 'Booking not available'], array[pl[1] || ' · ' || t_ar, pl[2] || ' · ' || t_ar], '/menu?tab=book', 'booking-' || new.id));
       delete from public.push_watches where kind = 'booking' and ref = new.id;
     end if;
   end if;
@@ -419,7 +419,7 @@ language plpgsql security definer set search_path = public as $$
 declare pl text[] := public.place_label(new.place_id);
 begin
   if new.status = 'ended' and old.status = 'active' then
-    perform public.push_send(public.push_messages('room', new.place_id, array[pl[1] || ' فضيت', pl[2] || ' is free'], array['احجزها قبل ما حد ياخدها', 'Grab it before someone else does'], '/?tab=book', 'room-' || new.place_id));
+    perform public.push_send(public.push_messages('room', new.place_id, array[pl[1] || ' فضيت', pl[2] || ' is free'], array['احجزها قبل ما حد ياخدها', 'Grab it before someone else does'], '/menu?tab=book', 'room-' || new.place_id));
     delete from public.push_watches where kind = 'room' and ref = new.place_id;
   end if;
   return new;

@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "dot · co-working & café",
     short_name: "dot",
     description: "Order, check your bill, and book a room at dot.",
-    start_url: "/",
+    start_url: "/menu",
     scope: "/",
     display: "standalone",
     background_color: "#eaf0ea",
