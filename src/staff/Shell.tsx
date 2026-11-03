@@ -28,20 +28,16 @@ export function Shell() {
   const { t } = useI18n();
   const snap = useSnap();
   const isOwner = useIsOwner();
-  const [tab, setTab] = useState<Tab>("board");
+  const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || "board");
   const [focus, setFocus] = useState<string | undefined>();
-  const [shiftStarted, setShiftStarted] = useState(false);
+  const [boardKey, setBoardKey] = useState(0);
+  const [shiftStarted, setShiftStarted] = useState(audioReady);
   const [preset, setPreset] = useState<StartPreset | null>(null);
-
-  useEffect(() => {
-    const h = location.hash.slice(1) as Tab;
-    if (h) setTab(h);
-    setShiftStarted(audioReady());
-  }, []);
 
   const goto = useCallback((x: string, f?: string) => {
     setTab(x as Tab);
     setFocus(f);
+    if (f) setBoardKey((k) => k + 1);
     history.replaceState(null, "", `#${x}`);
     window.scrollTo({ top: 0 });
   }, []);
@@ -114,10 +110,10 @@ export function Shell() {
       <main className="flex-1 grid gap-4 py-4 content-start" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))", paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))" }}>
         <FailedOps />
         <AlertBar alerts={alerts} muted={muted} onMute={mute} onUnmute={unmute} />
-        {active === "board" && <Board focus={focus} onFocusHandled={() => setFocus(undefined)} preset={preset} onPresetHandled={() => setPreset(null)} />}
+        {active === "board" && <Board key={boardKey} focus={focus} preset={preset} onPresetHandled={() => setPreset(null)} />}
         {active === "orders" && <OrdersView />}
         {active === "bills" && <BillsView />}
-        {active === "bookings" && <BookingsView goto={goto} />}
+        {active === "bookings" && <BookingsView />}
         {active === "customers" && <CustomersView />}
         {active === "day" && <DayView />}
         {active === "menu" && <MenuAdmin />}
@@ -132,10 +128,7 @@ export function Shell() {
 function ShiftGate({ dayOpen, onStarted }: { dayOpen: boolean; onStarted: () => void }) {
   const { t, money } = useI18n();
   const snap = useSnap();
-  const [float, setFloat] = useState("");
-  useEffect(() => {
-    if (snap.last_cash_day?.closing_counted != null) setFloat(String(snap.last_cash_day.closing_counted));
-  }, [snap.last_cash_day]);
+  const [float, setFloat] = useState(() => (snap.last_cash_day?.closing_counted != null ? String(snap.last_cash_day.closing_counted) : ""));
 
   function start() {
     unlockAudio();

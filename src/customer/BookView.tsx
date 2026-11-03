@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
@@ -36,18 +36,12 @@ export function BookView({ catalog }: { catalog: Catalog }) {
   const [clock, setClock] = useState("18:00");
   const [duration, setDuration] = useState("120");
   const [group, setGroup] = useState("");
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
+  const [phone, setPhone] = useState(() => getIdentity().phone);
+  const [name, setName] = useState(() => getIdentity().name);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ code: string | null } | null>(null);
-
-  useEffect(() => {
-    const me = getIdentity();
-    setPhone(me.phone);
-    setName(me.name);
-  }, []);
 
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => cairoToday(i)), []);
   const schedule = catalog.schedule.filter((s) => s.place_id === roomId);

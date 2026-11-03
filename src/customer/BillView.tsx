@@ -30,8 +30,8 @@ type BillData = {
 export function BillView() {
   const { t, n, money, dateTime, dur, lang } = useI18n();
   const errText = useErrorText();
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
+  const [phone, setPhone] = useState(() => getIdentity().phone);
+  const [code, setCode] = useState(() => getIdentity().code);
   const [data, setData] = useState<BillData | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +54,11 @@ export function BillView() {
 
   useEffect(() => {
     const me = getIdentity();
-    setPhone(me.phone);
-    setCode(me.code);
-    if (me.phone && me.code) void load(me.phone, me.code);
+    if (me.phone && me.code) {
+      rpc<BillData>("customer_bill", { p_phone: me.phone, p_code: me.code })
+        .then(setData)
+        .catch(() => {});
+    }
   }, [load]);
 
   useEffect(() => {

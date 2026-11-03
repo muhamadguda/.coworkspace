@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
 import { splitEqual } from "@/lib/billing";
 import type { Place, Session } from "@/lib/types";
@@ -18,29 +18,24 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
   const now = useNow(30000);
   const modes = snap.modes.filter((m) => m.active);
   const bookings = snap.bookings.filter((b) => b.place_id === place.id && b.status === "confirmed" && Math.abs(Date.parse(b.starts_at) - now.getTime()) < 6 * 3600_000);
-  const [customerId, setCustomerId] = useState<string | undefined>(presetCustomer);
+  const initial = snap.bookings.find((x) => x.id === presetBooking);
+  const [customerId, setCustomerId] = useState<string | undefined>(initial?.customer_id ?? presetCustomer);
   const [bookingId, setBookingId] = useState<string>(presetBooking ?? "");
-  const [modeId, setModeId] = useState(modes[0]?.id ?? "");
-  const [kind, setKind] = useState<"open" | "fixed">("open");
-  const [minutes, setMinutes] = useState(60);
-  const [group, setGroup] = useState("");
+  const [modeId, setModeId] = useState(initial?.mode_id ?? modes[0]?.id ?? "");
+  const [kind, setKind] = useState<"open" | "fixed">(initial ? "fixed" : "open");
+  const [minutes, setMinutes] = useState(initial?.duration_minutes ?? 60);
+  const [group, setGroup] = useState(initial?.group_size ? String(initial.group_size) : "");
 
-  useEffect(() => {
-    if (!open) return;
-    setCustomerId(presetCustomer);
-    setBookingId(presetBooking ?? "");
-  }, [open, presetCustomer, presetBooking]);
-
-  useEffect(() => {
-    const b = snap.bookings.find((x) => x.id === bookingId);
-    if (b) {
-      setCustomerId(b.customer_id);
-      setModeId(b.mode_id);
-      setKind("fixed");
-      setMinutes(b.duration_minutes);
-      if (b.group_size) setGroup(String(b.group_size));
-    }
-  }, [bookingId, snap.bookings]);
+  function pickBooking(id: string) {
+    setBookingId(id);
+    const b = snap.bookings.find((x) => x.id === id);
+    if (!b) return;
+    setCustomerId(b.customer_id);
+    setModeId(b.mode_id);
+    setKind("fixed");
+    setMinutes(b.duration_minutes);
+    if (b.group_size) setGroup(String(b.group_size));
+  }
 
   const cust = customerId ? customerById(snap, customerId) : undefined;
   const next = upcomingBookingFor(snap, place.id, now, 6 * 60);
@@ -61,7 +56,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
     <Sheet open={open} onClose={onClose} title={`${t("ss.start")} · ${n(place)}`} footer={<Button variant="accent" size="lg" disabled={!customerId || !modeId} onClick={start}>{t("ss.start")}</Button>}>
       {bookings.length ? (
         <Field label={t("ss.fromBooking")}>
-          <Select id="ss-booking" value={bookingId} onChange={(e) => setBookingId(e.target.value)}>
+          <Select id="ss-booking" value={bookingId} onChange={(e) => pickBooking(e.target.value)}>
             <option value="">{t("ss.noBooking")}</option>
             {bookings.map((b) => (
               <option key={b.id} value={b.id}>{time(b.starts_at)} · {customerById(snap, b.customer_id)?.name || customerById(snap, b.customer_id)?.phone} · {dur(b.duration_minutes)}</option>
@@ -116,11 +111,7 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
   const [split, setSplit] = useState<"booker" | "equal">("booker");
   const bills = billsInSession(snap, session.id);
   const bookerBill = bills.find((b) => b.customer_id === session.booker_customer_id) ?? bills[0];
-  const [selected, setSelected] = useState<string[]>([]);
-  useEffect(() => {
-    if (open) setSelected(bills.map((b) => b.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const [selected, setSelected] = useState<string[]>(() => bills.map((b) => b.id));
 
   const fee = useMemo(() => liveRoomFee(snap, session, now, chargeOverstay), [snap, session, now, chargeOverstay]);
   const participants = !bookerBill

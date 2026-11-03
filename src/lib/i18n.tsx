@@ -1,20 +1,35 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { dict, type DictKey } from "./dict";
 import type { Lang } from "./types";
 
 const TZ = "Africa/Cairo";
 const LANG_KEY = "dot.lang";
 
+// Language lives in localStorage; the prerendered HTML is Arabic and switches after hydration.
+let currentLang: Lang | null = null;
+const langListeners = new Set<() => void>();
 function readLang(): Lang {
+  if (currentLang) return currentLang;
   try {
-    const v = localStorage.getItem(LANG_KEY);
-    return v === "en" ? "en" : "ar";
+    currentLang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "ar";
   } catch {
-    return "ar";
+    currentLang = "ar";
   }
+  return currentLang;
 }
+function writeLang(l: Lang) {
+  currentLang = l;
+  try {
+    localStorage.setItem(LANG_KEY, l);
+  } catch {}
+  langListeners.forEach((f) => f());
+}
+const subscribeLang = (f: () => void) => {
+  langListeners.add(f);
+  return () => langListeners.delete(f);
+};
 
 export function formatMoney(n: number | null | undefined): string {
   const v = Math.round((n ?? 0) * 100) / 100;
@@ -45,23 +60,14 @@ type Ctx = {
 const I18nCtx = createContext<Ctx | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("ar");
-
-  useEffect(() => {
-    setLangState(readLang());
-  }, []);
+  const lang = useSyncExternalStore(subscribeLang, readLang, () => "ar" as Lang);
 
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   }, [lang]);
 
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l);
-    try {
-      localStorage.setItem(LANG_KEY, l);
-    } catch {}
-  }, []);
+  const setLang = useCallback((l: Lang) => writeLang(l), []);
 
   const value = useMemo<Ctx>(() => {
     const idx = lang === "ar" ? 0 : 1;

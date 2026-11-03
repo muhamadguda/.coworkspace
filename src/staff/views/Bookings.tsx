@@ -21,7 +21,7 @@ function cairoLocalToIso(local: string) {
   return new Date(guess - off).toISOString();
 }
 
-export function BookingsView({ goto: _goto }: { goto: (tab: string, focus?: string) => void }) {
+export function BookingsView() {
   const { t } = useI18n();
   const snap = useSnap();
   const [creating, setCreating] = useState(false);

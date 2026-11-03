@@ -11,7 +11,7 @@ import { addMyOrder, getIdentity, getMyOrders, setIdentity, type QrPlace } from 
 
 export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; place: QrPlace | null; onRefresh: () => void }) {
   const { t, n, money } = useI18n();
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [rawCart, setCart] = useState<CartLine[]>([]);
   const [picking, setPicking] = useState<MenuItem | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [activeCat, setActiveCat] = useState<string | null>(null);
@@ -25,14 +25,12 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
     return m;
   }, [catalog.items]);
   const cats = catalog.categories.filter((c) => itemsByCat.get(c.id)?.length);
+  // Items that sold out while sitting in the cart drop out automatically.
+  const cart = rawCart.filter((l) => catalog.items.find((i) => i.id === l.menu_item_id)?.available);
   const priceOf = (id: string) => catalog.items.find((i) => i.id === id)?.price ?? 0;
   const cartCount = cart.reduce((a, l) => a + l.qty, 0);
   const cartTotal = round2(cart.reduce((a, l) => a + l.qty * priceOf(l.menu_item_id), 0));
 
-  // Drop items that sold out while sitting in the cart.
-  useEffect(() => {
-    setCart((c) => c.filter((l) => catalog.items.find((i) => i.id === l.menu_item_id)?.available));
-  }, [catalog.items]);
 
   function add(item: MenuItem, options: ChosenOption[], note: string) {
     const key = `${item.id}|${options.map((o) => o.choice_id).join(",")}|${note}`;
@@ -164,16 +162,13 @@ function ItemCard({ item, onAdd, inCart }: { item: MenuItem; onAdd: () => void; 
 }
 
 function OptionSheet({ item, onClose, onAdd }: { item: MenuItem | null; onClose: () => void; onAdd: (o: ChosenOption[], note: string) => void }) {
+  return item ? <OptionSheetBody key={item.id} item={item} onClose={onClose} onAdd={onAdd} /> : null;
+}
+
+function OptionSheetBody({ item, onClose, onAdd }: { item: MenuItem; onClose: () => void; onAdd: (o: ChosenOption[], note: string) => void }) {
   const { t, n, money } = useI18n();
-  const [sel, setSel] = useState<Record<string, string>>({});
+  const [sel, setSel] = useState<Record<string, string>>(() => Object.fromEntries(item.options.map((g) => [g.id, g.choices[0]?.id ?? ""])));
   const [note, setNote] = useState("");
-  useEffect(() => {
-    if (item) {
-      setSel(Object.fromEntries(item.options.map((g) => [g.id, g.choices[0]?.id ?? ""])));
-      setNote("");
-    }
-  }, [item]);
-  if (!item) return null;
   const chosen: ChosenOption[] = item.options.flatMap((g) => {
     const c = g.choices.find((x) => x.id === sel[g.id]);
     return c ? [{ group_id: g.id, choice_id: c.id, group_ar: g.name_ar, group_en: g.name_en, choice_ar: c.name_ar, choice_en: c.name_en }] : [];
@@ -214,33 +209,27 @@ function OptionSheet({ item, onClose, onAdd }: { item: MenuItem | null; onClose:
   );
 }
 
-function CheckoutSheet({
-  open, onClose, cart, setCart, catalog, place, total, onSent,
-}: {
+type CheckoutProps = {
   open: boolean; onClose: () => void; cart: CartLine[]; setCart: (f: (c: CartLine[]) => CartLine[]) => void; catalog: Catalog; place: QrPlace | null; total: number; onSent: (code: string | null) => void;
-}) {
+};
+
+function CheckoutSheet(props: CheckoutProps) {
+  return props.open ? <CheckoutSheetBody {...props} /> : null;
+}
+
+function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, total, onSent }: CheckoutProps) {
   const { t, n, money, lang } = useI18n();
   const errText = useErrorText();
   const toast = useToast();
-  const [useCode, setUseCode] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
+  const [me] = useState(getIdentity);
+  const [useCode, setUseCode] = useState(!!me.code && !me.phone);
+  const [phone, setPhone] = useState(me.phone);
+  const [code, setCode] = useState(me.code);
+  const [name, setName] = useState(me.name);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const orderId = useRef<string>("");
-
-  useEffect(() => {
-    if (!open) return;
-    const me = getIdentity();
-    setPhone(me.phone);
-    setCode(me.code);
-    setName(me.name);
-    setUseCode(!!me.code && !me.phone);
-    setError(null);
-    orderId.current = crypto.randomUUID();
-  }, [open]);
+  const [orderId] = useState(() => crypto.randomUUID());
 
   const valid = cart.length > 0 && (useCode ? /^\d{4,6}$/.test(code.trim()) : isValidPhone(phone));
 
@@ -249,7 +238,7 @@ function CheckoutSheet({
     setError(null);
     try {
       const res = await rpc<{ order_id: string; customer_code: string | null; name: string | null }>("customer_place_order", {
-        p_order_id: orderId.current,
+        p_order_id: orderId,
         p_token: place?.token ?? null,
         p_phone: useCode ? "" : normalizePhone(phone),
         p_code: useCode ? code.trim() : null,

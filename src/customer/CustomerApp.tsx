@@ -19,18 +19,17 @@ export function CustomerApp() {
   const [loadError, setLoadError] = useState(false);
   const [place, setPlace] = useState<QrPlace | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const c = await rpc<Catalog>("public_catalog");
-      setCatalog(c);
-      setLoadError(false);
-    } catch {
-      setLoadError(true);
-    }
+  const load = useCallback(() => {
+    rpc<Catalog>("public_catalog")
+      .then((c) => {
+        setCatalog(c);
+        setLoadError(false);
+      })
+      .catch(() => setLoadError(true));
   }, []);
 
   useEffect(() => {
-    void load();
+    load();
     const id = setInterval(load, 45_000);
     return () => clearInterval(id);
   }, [load]);
@@ -40,6 +39,8 @@ export function CustomerApp() {
     const url = new URL(window.location.href);
     const token = url.searchParams.get("t");
     const tabParam = url.searchParams.get("tab");
+    // Reading the URL and device storage after hydration (the page is prerendered).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tabParam === "bill" || tabParam === "book") setTab(tabParam);
     if (!token) {
       setPlace(getQrPlace());

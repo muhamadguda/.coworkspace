@@ -29,10 +29,8 @@ export function useAlerts(goto: (tab: string, focus?: string) => void) {
   const snap = useSnap();
   const now = useNow(5000);
   const { t, n, time } = useI18n();
-  const [acks, setAcks] = useState<string[]>([]);
-  const [mutedUntil, setMutedUntil] = useState(0);
-
-  useEffect(() => setAcks(readAcks()), []);
+  const [acks, setAcks] = useState<string[]>(readAcks);
+  const [muted, setMuted] = useState(false);
   const ack = (key: string) => {
     const next = [...acks.filter((k) => k !== key), key].slice(-200);
     setAcks(next);
@@ -110,20 +108,26 @@ export function useAlerts(goto: (tab: string, focus?: string) => void) {
   useEffect(() => {
     if (!alerts.length) return;
     const play = () => {
-      if (Date.now() < mutedUntil || !audioReady()) return;
+      if (muted || !audioReady()) return;
       beep(alerts.some((a) => a.urgent) ? "urgent" : "soft");
     };
     play();
     const id = setInterval(play, 3500);
     return () => clearInterval(id);
-  }, [alerts, mutedUntil]);
+  }, [alerts, muted]);
+
+  useEffect(() => {
+    if (!muted) return;
+    const id = setTimeout(() => setMuted(false), 60_000);
+    return () => clearTimeout(id);
+  }, [muted]);
 
   useEffect(() => {
     const base = "dot · Staff";
     document.title = alerts.length ? `(${alerts.length}) ${base}` : base;
   }, [alerts.length]);
 
-  return { alerts, muted: Date.now() < mutedUntil, mute: () => setMutedUntil(Date.now() + 60_000), unmute: () => setMutedUntil(0) };
+  return { alerts, muted, mute: () => setMuted(true), unmute: () => setMuted(false) };
 }
 
 export function AlertBar({ alerts, muted, onMute, onUnmute }: { alerts: AlertItem[]; muted: boolean; onMute: () => void; onUnmute: () => void }) {

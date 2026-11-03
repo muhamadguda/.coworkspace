@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, StatusDot, cx } from "@/components/ui";
@@ -13,19 +13,13 @@ import { EndSessionSheet, StartSessionSheet } from "../components/SessionSheets"
 
 export type StartPreset = { placeId: string; customerId?: string; bookingId?: string };
 
-export function Board({ focus, onFocusHandled, preset, onPresetHandled }: { focus?: string; onFocusHandled: () => void; preset: StartPreset | null; onPresetHandled: () => void }) {
+export function Board({ focus, preset, onPresetHandled }: { focus?: string; preset: StartPreset | null; onPresetHandled: () => void }) {
   const { t } = useI18n();
   const snap = useSnap();
-  const [openPlace, setOpenPlace] = useState<string | null>(null);
+  const [openPlace, setOpenPlace] = useState<string | null>(focus ?? null);
   const rooms = snap.places.filter((p) => p.kind === "room" && p.active);
   const tables = snap.places.filter((p) => p.kind === "table" && p.active);
 
-  useEffect(() => {
-    if (focus) {
-      setOpenPlace(focus);
-      onFocusHandled();
-    }
-  }, [focus, onFocusHandled]);
 
   const counterBills = snap.bills.filter((b) => b.status === "open" && !b.place_id);
   const placeOpen = snap.places.find((p) => p.id === openPlace);
@@ -170,7 +164,7 @@ function RoomPanel({ room, onClose }: { room: Place; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} wide title={n(room)}>
       <SessionControls session={sess} onEnd={() => setEnding(true)} />
-      <EndSessionSheet session={sess} open={ending} onClose={() => setEnding(false)} onEnded={() => setEnding(false)} />
+      {ending ? <EndSessionSheet session={sess} open onClose={() => setEnding(false)} onEnded={() => setEnding(false)} /> : null}
     </Sheet>
   );
 }
