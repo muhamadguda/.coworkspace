@@ -59,6 +59,7 @@ function RoomTile({ room, onOpen }: { room: Place; onOpen: () => void }) {
   const sess = activeSessionAt(snap, room.id);
   const next = upcomingBookingFor(snap, room.id, now, 12 * 60);
   if (!sess) {
+    const openBills = billsAtPlace(snap, room.id).length;
     return (
       <button type="button" onClick={onOpen} className="text-start rounded-[2px] border-2 border-free bg-free-bg p-4 grid gap-2 min-h-36 hover:brightness-[1.03]">
         <div className="flex items-center justify-between gap-2">
@@ -66,6 +67,7 @@ function RoomTile({ room, onOpen }: { room: Place; onOpen: () => void }) {
           <span className="inline-flex items-center gap-1.5 font-bold text-free"><StatusDot tone="free" />{t("b.free")}</span>
         </div>
         {next ? <Pill tone="warn" className="justify-self-start">{t("b.nextBooking", { time: time(next.starts_at) })}</Pill> : null}
+        {openBills ? <Pill className="justify-self-start">{t("b.bills", { n: openBills })} · {t("bl.checkout")}</Pill> : null}
       </button>
     );
   }

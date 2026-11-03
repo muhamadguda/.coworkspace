@@ -7,7 +7,7 @@
 import { useSyncExternalStore } from "react";
 import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { errorCode, isNetworkError, rpc, supabase } from "@/lib/supabase";
+import { errorCode, isAuthError, isNetworkError, rpc, supabase } from "@/lib/supabase";
 import type { Snapshot } from "@/lib/types";
 import { applyOp, type Op, type OpType } from "./reducer";
 
@@ -23,10 +23,11 @@ type State = {
   loaded: boolean;
   lastSyncAt: number | null;
   view: Snapshot | null;
+  needsAuth: boolean; // signed out / token expired: queued work waits for a sign-in
 };
 
 const STORE_KEY = "dot.staff.v1";
-let state: State = { base: null, queue: [], failed: [], online: true, syncing: false, loaded: false, lastSyncAt: null, view: null };
+let state: State = { base: null, queue: [], failed: [], online: true, syncing: false, loaded: false, lastSyncAt: null, view: null, needsAuth: false };
 const listeners = new Set<() => void>();
 
 function computeView(base: Snapshot | null, queue: QueuedOp[]) {
@@ -75,6 +76,22 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let heartbeat: ReturnType<typeof setInterval> | null = null;
 
+/** Called after a successful sign-in: resume syncing queued work. */
+export function resumeAfterSignIn() {
+  set({ needsAuth: false }, false);
+  void flush().then(refresh);
+}
+
+/** The cached counter state, if this device has one (for starting offline). */
+export async function cachedUserId(): Promise<string | null> {
+  try {
+    const saved = (await idbGet(STORE_KEY)) as { base: Snapshot | null } | undefined;
+    return saved?.base?.me?.user_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function startStore(userId: string) {
   if (started) return;
   started = true;
@@ -87,7 +104,7 @@ export async function startStore(userId: string) {
       set({ base: saved.base, queue: saved.queue.map((o) => ({ ...o, state: "pending" as const })) }, false);
     }
   } catch {}
-  set({ loaded: true }, false);
+  set({ loaded: true, online: navigator.onLine }, false);
   window.addEventListener("online", onOnline);
   window.addEventListener("offline", () => set({ online: false }, false));
   heartbeat = setInterval(() => void refresh(), 30_000);
@@ -106,7 +123,7 @@ export async function stopStore() {
 
 export async function clearLocal() {
   await idbDel(STORE_KEY).catch(() => {});
-  state = { base: null, queue: [], failed: [], online: true, syncing: false, loaded: false, lastSyncAt: null, view: null };
+  state = { base: null, queue: [], failed: [], online: true, syncing: false, loaded: false, lastSyncAt: null, view: null, needsAuth: false };
   listeners.forEach((l) => l());
 }
 
@@ -136,6 +153,10 @@ export async function refresh() {
     void flush();
     return;
   }
+  if (!(await hasSession())) {
+    set({ needsAuth: true }, false);
+    return;
+  }
   refreshing = true;
   const startedAt = Date.now();
   try {
@@ -145,14 +166,28 @@ export async function refresh() {
     set({ base: snap, queue, online: true, lastSyncAt: Date.now() });
   } catch (e) {
     if (isNetworkError(e)) set({ online: false }, false);
-    else if (errorCode(e) === "not_staff") throw e;
+    else if (errorCode(e) === "not_staff" && (await hasSession())) throw e;
+    else if (isAuthError(e)) set({ needsAuth: true }, false);
   } finally {
     refreshing = false;
   }
 }
 
+async function hasSession() {
+  try {
+    const { data } = await supabase().auth.getSession();
+    return !!data.session;
+  } catch {
+    return false;
+  }
+}
+
 async function flush() {
   if (state.syncing) return;
+  if (state.queue.some((q) => q.state === "pending") && !(await hasSession())) {
+    set({ needsAuth: true }, false);
+    return;
+  }
   set({ syncing: true }, false);
   try {
     for (;;) {
@@ -163,6 +198,10 @@ async function flush() {
         await rpc("staff_op", { op });
         set({ queue: state.queue.map((q) => (q.id === next.id ? { ...q, state: "sent" as const, sentAt: Date.now() } : q)), online: true });
       } catch (e) {
+        if (isAuthError(e) && errorCode(e) !== "bad_owner_credentials") {
+          set({ needsAuth: true }, false);
+          return;
+        }
         if (isNetworkError(e)) {
           set({ online: false }, false);
           if (retryTimer) clearTimeout(retryTimer);

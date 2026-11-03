@@ -41,6 +41,13 @@ export function isNetworkError(err: unknown): boolean {
   return /Failed to fetch|NetworkError|Load failed|network|fetch failed|timeout|ERR_INTERNET|ECONN/i.test(msg);
 }
 
+/** Expired or missing login: retry after signing in, never drop the work. */
+export function isAuthError(err: unknown): boolean {
+  const e = err as { code?: string; status?: number; message?: string } | null;
+  if (!e) return false;
+  return e.code === "PGRST301" || e.code === "PGRST302" || e.status === 401 || /JWT|Invalid Refresh Token|Auth session missing|refresh_token/i.test(e.message ?? "");
+}
+
 export async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase().rpc(fn, args ?? {});
   if (error) throw error;

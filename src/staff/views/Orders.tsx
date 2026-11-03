@@ -14,6 +14,7 @@ export function OrdersView() {
   const fresh = snap.orders.filter((o) => o.status === "new").sort((a, b) => a.created_at.localeCompare(b.created_at));
   const toServe = snap.orders.filter((o) => o.status === "accepted").sort((a, b) => (a.accepted_at ?? "").localeCompare(b.accepted_at ?? ""));
   return (
+    <div className="grid gap-6">
     <div className="grid gap-6 lg:grid-cols-2 items-start">
       <section className="grid gap-3">
         <SectionTitle>{t("o.new")} <span className="num">({fresh.length})</span></SectionTitle>
@@ -24,6 +25,41 @@ export function OrdersView() {
         {toServe.length ? toServe.map((o) => <OrderCard key={o.id} order={o} />) : <Empty>{t("o.noPreparing")}</Empty>}
       </section>
     </div>
+    <Availability />
+    </div>
+  );
+}
+
+/** Staff can mark items sold out (and back) without owner access. */
+function Availability() {
+  const { t, n } = useI18n();
+  const snap = useSnap();
+  const [open, setOpen] = useState(false);
+  const soldOut = snap.items.filter((i) => i.active && !i.available);
+  return (
+    <section className="grid gap-3">
+      <SectionTitle action={<Button size="sm" onClick={() => setOpen((x) => !x)}>{open ? t("common.close") : t("common.edit")}</Button>}>
+        {t("o.availability")} {soldOut.length ? <Pill tone="busy">{t("o.soldOutCount", { n: soldOut.length })}</Pill> : null}
+      </SectionTitle>
+      {open ? (
+        <Card className="p-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {snap.items.filter((i) => i.active).map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              aria-pressed={!i.available}
+              onClick={() => dispatch("set_item_available", { menu_item_id: i.id, available: !i.available })}
+              className={cx("flex items-center justify-between gap-2 rounded-[2px] border-2 px-3 h-12 text-start font-semibold", i.available ? "border-line bg-surface" : "border-busy bg-busy-bg text-busy")}
+            >
+              <span className="truncate">{n(i)}</span>
+              <span className="text-xs">{i.available ? t("m.available") : t("c.soldOut")}</span>
+            </button>
+          ))}
+        </Card>
+      ) : soldOut.length ? (
+        <div className="flex flex-wrap gap-1.5">{soldOut.map((i) => <Pill key={i.id} tone="busy">{n(i)}</Pill>)}</div>
+      ) : null}
+    </section>
   );
 }
 
