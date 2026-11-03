@@ -1,26 +1,130 @@
 @import "tailwindcss";
 
+/* Cement Tile: teal ink, mustard accent, sage ground, crisp 2px borders.
+   Green / red stay reserved for room status. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #eaf0ea;
+  --surface: #f8faf6;
+  --surface-2: #dfe8e1;
+  --ink: #173a39;
+  --muted: #4f6a66;
+  --line: #bfd0c8;
+  --strong: #173a39;
+  --accent: #d9a21b;
+  --accent-ink: #173a39;
+  --free: #1f7a4b;
+  --free-bg: #dcefe3;
+  --busy: #b3372f;
+  --busy-bg: #f6e3e0;
+  --warn: #8a5d00;
+  --warn-bg: #fbefcf;
+  --hatch: #f6e7e3;
+  --shadow: 0 1px 0 rgba(23, 58, 57, 0.08);
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #0e1f1e;
+    --surface: #152b2a;
+    --surface-2: #1c3735;
+    --ink: #e5efe9;
+    --muted: #9ab4ad;
+    --line: #2c4b48;
+    --strong: #cfe0d8;
+    --accent: #e3b23c;
+    --accent-ink: #132423;
+    --free: #4cc38a;
+    --free-bg: #173a2b;
+    --busy: #f0756c;
+    --busy-bg: #3d2120;
+    --warn: #f0c35a;
+    --warn-bg: #3a3017;
+    --hatch: #2c2221;
+    --shadow: none;
+    color-scheme: dark;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-strong: var(--strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-free: var(--free);
+  --color-free-bg: var(--free-bg);
+  --color-busy: var(--busy);
+  --color-busy-bg: var(--busy-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --font-display: var(--font-messiri), var(--font-plex-ar), serif;
+  --font-sans: var(--font-plex-ar), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --radius-tile: 2px;
 }
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.tile-stripe {
+  border-top: 10px solid transparent;
+  border-image: repeating-linear-gradient(90deg, var(--strong) 0 12px, var(--accent) 12px 24px) 10;
+}
+
+.hatch {
+  background-image: repeating-linear-gradient(-45deg, transparent 0 8px, var(--hatch) 8px 16px);
+}
+
+.tile-pattern {
+  background:
+    radial-gradient(circle at 0 0, var(--surface-2) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 100% 0, var(--surface-2) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 0 100%, var(--surface-2) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 100% 100%, var(--surface-2) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 50% 50%, var(--accent) 0 14%, transparent 14.5%),
+    var(--strong);
+  background-size: 48px 48px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--busy) 60%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+.alarm {
+  animation: pulse-ring 1.2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alarm { animation: none; }
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+
+/* Hide number spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
