@@ -42,7 +42,7 @@ export function billRunningTotal(s: Snapshot, bill: Bill, now: Date) {
 export const currentBusinessDay = (s: Snapshot, now = new Date()) => businessDay(now, s.settings.day_rollover_hour);
 
 export function dayStats(s: Snapshot, day: string) {
-  const pays = s.payments.filter((p) => p.business_day === day);
+  const pays = s.payments.filter((p) => p.business_day === day && !p.voided_at);
   const byMethod = { cash: 0, instapay: 0, vf_cash: 0 } as Record<"cash" | "instapay" | "vf_cash", number>;
   for (const p of pays) byMethod[p.method] = round2(byMethod[p.method] + p.amount);
   const outs = s.cash_outs.filter((c) => c.business_day === day);

@@ -43,7 +43,7 @@ export function printBill(snap: Snapshot, bill: Bill, lang: Lang, t: T, opts: { 
   const totals = [{ label: t("common.subtotal"), value: tot.subtotal }];
   if (tot.discountAmount > 0) totals.push({ label: `${t("co.discount")}${bill.discount_reason ? ` (${bill.discount_reason})` : ""}`, value: -tot.discountAmount });
   totals.push({ label: t("common.total"), value: tot.total, strong: true } as { label: string; value: number; strong?: boolean });
-  const pays = closed ? snap.payments.filter((p) => p.bill_id === bill.id && p.kind === "bill") : [];
+  const pays = closed ? snap.payments.filter((p) => p.bill_id === bill.id && p.kind === "bill" && !p.voided_at) : [];
   const payments = pays.map((p) => ({ label: t(`co.${p.method}` as DictKey), value: p.amount }));
   if (closed && bill.pay_later > 0) payments.push({ label: t("r.payLater"), value: bill.pay_later });
 

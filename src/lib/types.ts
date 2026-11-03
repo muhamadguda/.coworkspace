@@ -146,6 +146,7 @@ export type Payment = {
   kind: "bill" | "debt";
   paid_at: string;
   business_day: string;
+  voided_at?: string | null;
 };
 
 export type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled" | "started" | "no_show";
