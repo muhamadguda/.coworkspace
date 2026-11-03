@@ -1,23 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useI18n } from "@/lib/i18n";
 import { rpc } from "@/lib/supabase";
 import { rateFor } from "@/lib/pricing";
 import type { Catalog } from "@/lib/types";
-import { LangSwitch, Logo, StatusDot, cx } from "@/components/ui";
+import type { DictKey } from "@/lib/dict";
+import { LangSwitch, Logo, cx } from "@/components/ui";
+import type { DioramaInput } from "./Diorama";
 import { VENUE } from "./config";
 
-// Brand colors are fixed here (not theme tokens): the teal bands look the same in light and dark.
+// three.js loads after the page is interactive; the story reads fine before it arrives.
+const Diorama = dynamic(() => import("./Diorama").then((m) => m.Diorama), { ssr: false });
+
+// The page is one day at dot. Scrolling (or dragging along the timeline) moves the clock
+// from morning to 3 AM: the sun crosses a 3D model of the place, shadows move, the rooms
+// light up at night, and the word on screen changes with the hour.
 const TEAL = "#173a39";
-const DEEP = "#0f2a29";
+const NIGHT = "#081716";
 const SAGE = "#eaf0ea";
 const MUSTARD = "#d9a21b";
+const SCENES = [1, 2, 3, 4, 5, 6] as const;
 
 export function Landing() {
-  const { t } = useI18n();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-
   useEffect(() => {
     // Old QR links (/?t=…) and notification links (/?tab=…) belong to the menu.
     const q = new URLSearchParams(location.search);
@@ -28,437 +35,254 @@ export function Landing() {
     rpc<Catalog>("public_catalog").then(setCatalog).catch(() => {});
   }, []);
 
-  useReveal();
-
   return (
-    <div className="min-h-dvh bg-bg text-ink">
-      <Hero />
-      <Marquee />
-      <Activities />
-      <Rooms catalog={catalog} />
-      <HowItWorks />
-      <Cafe catalog={catalog} />
-      <Visit />
-      <footer className="border-t-2 border-line">
-        <div className="mx-auto max-w-6xl py-6 flex flex-wrap items-center justify-between gap-3 text-sm text-muted" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))", paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))" }}>
-          <span className="flex items-center gap-3"><Logo className="h-6" /> <span>dotcowork.space</span></span>
-          <a href="/staff" className="underline">{t("l.staff")}</a>
-        </div>
-      </footer>
+    <div style={{ background: NIGHT, color: SAGE, overflowX: "clip" }}>
+      <Day catalog={catalog} />
+      <Doors />
+      <Floor catalog={catalog} />
+      <Board catalog={catalog} />
+      <Call />
     </div>
   );
 }
 
-const gutter = { paddingInline: "max(16px, env(safe-area-inset-left, 0px))" } as const;
+const gutter = { paddingInline: "max(20px, env(safe-area-inset-left, 0px))" } as const;
 
-function Hero() {
+// ---------------------------------------------------------------- the day (scroll story over the 3D model)
+function Day({ catalog }: { catalog: Catalog | null }) {
   const { t, dir } = useI18n();
-  const mosaic = useRef<MosaicHandle>(null);
-  const verbs = [t("l.v1"), t("l.v2"), t("l.v3"), t("l.v4"), t("l.v5")];
-  const [vi, setVi] = useState(0);
+  const section = useRef<HTMLElement>(null);
+  const track = useRef<HTMLDivElement>(null);
+  const input = useRef<DioramaInput>({ progress: 0, busy: [] });
+  const [p, setP] = useState(0);
+  const dragging = useRef(false);
+
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = setInterval(() => setVi((i) => (i + 1) % 5), 2200);
-    return () => clearInterval(id);
+    input.current.busy = (catalog?.places ?? []).filter((x) => x.kind === "room").map((x) => !!x.busy);
+  }, [catalog]);
+
+  useEffect(() => {
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const el = section.current;
+      if (!el) return;
+      const span = el.offsetHeight - window.innerHeight;
+      const q = Math.min(1, Math.max(0, -el.getBoundingClientRect().top / Math.max(1, span)));
+      input.current.progress = q;
+      setP(q);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(raf);
+    };
   }, []);
-  // Fade toward the text side so the headline always stays readable.
-  const fade = `linear-gradient(${dir === "rtl" ? "270deg" : "90deg"}, ${TEAL} 0%, ${TEAL}f0 34%, ${TEAL}8c 60%, ${TEAL}1a 100%)`;
-  return (
-    <header
-      className="relative overflow-hidden select-none"
-      style={{ background: TEAL, color: SAGE }}
-      onPointerMove={(e) => mosaic.current?.hover(e.clientX, e.clientY)}
-      onPointerDown={(e) => mosaic.current?.tap(e.clientX, e.clientY)}
-    >
-      <Mosaic ref={mosaic} />
-      <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ background: fade }} />
-      <nav className="relative mx-auto max-w-6xl flex items-center justify-between gap-3 py-4" style={{ ...gutter, paddingTop: "max(16px, env(safe-area-inset-top, 0px))" }}>
-        <Logo light className="h-9" />
-        <div className="flex items-center gap-2">
-          <a href={`tel:${VENUE.phone}`} className="hidden sm:inline-flex h-9 px-3 items-center rounded-[2px] border-2 text-sm font-semibold num" style={{ borderColor: `${SAGE}55` }}>
-            {VENUE.phoneDisplay}
-          </a>
-          <LangSwitch className="!bg-transparent !text-[#eaf0ea] !border-[#eaf0ea]/60" />
-        </div>
-      </nav>
 
-      <div className="relative mx-auto max-w-6xl pt-10 pb-20 sm:pt-16 sm:pb-28 grid gap-8 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto" style={gutter}>
-        <span className="inline-flex items-center gap-2 justify-self-start rounded-[2px] px-3 py-1 text-sm font-semibold" style={{ background: `${SAGE}14`, border: `1px solid ${SAGE}33` }}>
-          <span className="size-2 rounded-full" style={{ background: MUSTARD }} />
-          {t("l.eyebrow")} · {t("l.openLate")}
-        </span>
-        <h1 className="font-display font-bold leading-[0.95] tracking-tight text-[clamp(64px,13vw,168px)] grid">
-          <span className="landing-rise" style={{ animationDelay: "0ms" }}>{t("l.title1")}</span>
-          <span className="landing-rise" style={{ animationDelay: "120ms" }}>{t("l.title2")}</span>
-          <span className="landing-rise" style={{ animationDelay: "240ms", color: MUSTARD }} aria-live="off">
-            <span key={vi} className="word-in">{verbs[vi]}</span>
-          </span>
-        </h1>
-        <p className="max-w-[46ch] text-lg sm:text-xl leading-relaxed" style={{ color: `${SAGE}d9` }}>{t("l.lede")}</p>
-        <div className="flex flex-wrap gap-3">
-          <a href="/menu" className="h-14 px-6 inline-flex items-center rounded-[2px] font-bold text-lg border-2" style={{ background: MUSTARD, color: TEAL, borderColor: MUSTARD }}>
-            {t("l.menu")}
-          </a>
-          <a href="/menu?tab=book" className="h-14 px-6 inline-flex items-center rounded-[2px] font-bold text-lg border-2" style={{ borderColor: SAGE, color: SAGE }}>
-            {t("l.book")}
-          </a>
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-[15px] font-semibold">
-          <a href={`tel:${VENUE.phone}`} className="inline-flex items-center gap-2 underline underline-offset-4 decoration-2" style={{ textDecorationColor: MUSTARD }}>
-            <PhoneIcon /> {t("l.call")} <span className="num">{VENUE.phoneDisplay}</span>
-          </a>
-          <a href={VENUE.mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline underline-offset-4 decoration-2" style={{ textDecorationColor: MUSTARD }}>
-            <PinIcon /> {t("l.directions")}
-          </a>
-        </div>
-      </div>
-      <span aria-hidden className="absolute bottom-5 end-5 text-xs font-semibold tracking-widest uppercase pointer-events-none hidden sm:block" style={{ color: `${SAGE}80` }}>
-        {t("l.tapHint")} ↗
-      </span>
-      <div aria-hidden className="tile-stripe relative" />
-    </header>
-  );
-}
+  const scrollTo = useCallback((q: number, smooth = false) => {
+    const el = section.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: top + Math.min(1, Math.max(0, q)) * (el.offsetHeight - window.innerHeight), behavior: smooth ? "smooth" : "auto" });
+  }, []);
 
-type MosaicHandle = { hover: (x: number, y: number) => void; tap: (x: number, y: number) => void };
+  const scrub = (clientX: number) => {
+    const r = track.current?.getBoundingClientRect();
+    if (!r) return;
+    let q = (clientX - r.left) / r.width;
+    if (dir === "rtl") q = 1 - q;
+    scrollTo(q);
+  };
 
-/** A living cement-tile floor: tiles light up on their own, under the pointer, and ripple on tap. */
-const Mosaic = function Mosaic({ ref }: { ref: React.Ref<MosaicHandle> }) {
-  const COLS = 12;
-  const ROWS = 16; // enough rows to cover the tallest hero; extra rows are clipped
-  const total = COLS * ROWS;
-  const box = useRef<HTMLDivElement>(null);
-  const [lit, setLit] = useState<Set<number>>(() => new Set([5, 18, 30, 41, 55, 66, 79, 88]));
-  const [hot, setHot] = useState<Record<number, number>>({});
-  const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = setInterval(() => {
-      setLit((prev) => {
-        const next = new Set(prev);
-        const arr = [...next];
-        if (arr.length > 9) next.delete(arr[Math.floor(Math.random() * arr.length)]);
-        next.add(Math.floor(Math.random() * total));
-        return next;
-      });
-      const now = Date.now();
-      setHot((h) => Object.fromEntries(Object.entries(h).filter(([, until]) => until > now)));
-    }, 900);
-    return () => clearInterval(id);
-  }, [total]);
-
-  const indexAt = useCallback(
-    (x: number, y: number) => {
-      const r = box.current?.getBoundingClientRect();
-      if (!r || x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
-      const cw = r.width / COLS;
-      const col = Math.floor((x - r.left) / cw);
-      const row = Math.floor((y - r.top) / cw);
-      if (row < 0 || row >= ROWS) return null;
-      return { i: row * COLS + col, col, row, lx: x - r.left, ly: y - r.top };
-    },
-    [],
-  );
-
-  const frame = useRef(0);
-  const handle = useMemo<MosaicHandle>(
-    () => ({
-      hover: (x, y) => {
-        if (frame.current) return;
-        frame.current = requestAnimationFrame(() => {
-          frame.current = 0;
-          const hit = indexAt(x, y);
-          if (!hit) return;
-          setHot((h) => ({ ...h, [hit.i]: Date.now() + 1400 }));
-        });
-      },
-      tap: (x, y) => {
-        const hit = indexAt(x, y);
-        if (!hit) return;
-        const until = Date.now() + 1800;
-        const ring: Record<number, number> = {};
-        for (let dr = -1; dr <= 1; dr++)
-          for (let dc = -1; dc <= 1; dc++) {
-            const c = hit.col + dc, r = hit.row + dr;
-            if (c >= 0 && c < COLS && r >= 0 && r < ROWS) ring[r * COLS + c] = until;
-          }
-        setHot((h) => ({ ...h, ...ring }));
-        const id = Date.now() + Math.random();
-        setRipples((rs) => [...rs.slice(-4), { id, x: hit.lx, y: hit.ly }]);
-        setTimeout(() => setRipples((rs) => rs.filter((r) => r.id !== id)), 950);
-      },
-    }),
-    [indexAt],
-  );
-  useEffect(() => {
-    if (typeof ref === "function") ref(handle);
-    else if (ref) (ref as React.MutableRefObject<MosaicHandle | null>).current = handle;
-  }, [ref, handle]);
+  const scene = Math.min(5, Math.floor(p * 6));
+  const n = SCENES[scene];
+  const dark = p > 0.52;
+  const fg = dark ? SAGE : TEAL;
+  const minutes = Math.round((9 + p * 18) * 60); // 09:00 → 03:00
+  const clock = `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(Math.floor((minutes % 60) / 15) * 15).padStart(2, "0")}`;
 
   return (
-    <div ref={box} aria-hidden className="absolute inset-y-0 end-0 w-full sm:w-[72%] grid content-start opacity-95" style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))` }}>
-      {Array.from({ length: total }, (_, i) => {
-        const on = lit.has(i) || hot[i] !== undefined;
-        const isHot = hot[i] !== undefined;
-        return (
-          <span
-            key={i}
-            className="relative aspect-square transition-colors duration-700"
-            style={{
-              background: on ? DEEP : TEAL,
-              backgroundImage: `radial-gradient(circle at 0 0, ${SAGE}${isHot ? "40" : "22"} 0 24%, transparent 24.5%), radial-gradient(circle at 100% 0, ${SAGE}${isHot ? "40" : "22"} 0 24%, transparent 24.5%), radial-gradient(circle at 0 100%, ${SAGE}${isHot ? "40" : "22"} 0 24%, transparent 24.5%), radial-gradient(circle at 100% 100%, ${SAGE}${isHot ? "40" : "22"} 0 24%, transparent 24.5%)`,
+    <section ref={section} className="relative h-[560vh]" aria-label={t("l.dayTitle")}>
+      <div className="sticky top-0 h-dvh overflow-hidden select-none" style={{ background: dark ? NIGHT : "#dfe9e1" }}>
+        <Diorama input={input} className="absolute inset-0" />
+
+        {/* top bar */}
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 py-4 pointer-events-none" style={{ ...gutter, paddingTop: "max(16px, env(safe-area-inset-top, 0px))", color: fg }}>
+          <Logo light={dark} className="h-9" />
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <a href="/menu" className="h-9 px-4 inline-flex items-center rounded-full border-2 text-sm font-semibold border-current">{t("c.nav.menu")}</a>
+            <LangSwitch className="!bg-transparent !text-current !border-current !rounded-full" />
+          </div>
+        </div>
+
+        {/* the word + the clock, over the sky */}
+        <div className="absolute inset-x-0 top-[12%] flex flex-wrap items-start justify-between gap-6 pointer-events-none" style={{ ...gutter, color: fg }}>
+          <div className="grid gap-2 max-w-[min(92vw,900px)]">
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.3em] opacity-70">{t("l.dayTitle")}</span>
+            <h1 className="font-display font-bold leading-[0.82] tracking-tight text-[clamp(84px,17vw,260px)]">
+              <span key={n} className="word-in">{t(`l.s${n}` as DictKey)}</span>
+            </h1>
+            <p key={`b${n}`} className="word-in max-w-[32ch] text-lg sm:text-2xl leading-snug font-medium" style={{ animationDelay: "90ms", textShadow: dark ? "0 1px 12px rgba(0,0,0,.6)" : "0 1px 12px rgba(255,255,255,.5)" }}>
+              {t(`l.s${n}b` as DictKey)}
+            </p>
+          </div>
+          <div className="text-end hidden sm:block">
+            <div className="num font-semibold leading-none tracking-tight text-[clamp(40px,7vw,104px)]">{clock}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.3em] opacity-70">{t(`l.t${n}` as DictKey)}</div>
+          </div>
+        </div>
+
+        {/* timeline scrubber, over the floor */}
+        <div className="absolute inset-x-0 bottom-0 pt-10 pb-[max(18px,env(safe-area-inset-bottom,0px))]" style={{ ...gutter, background: `linear-gradient(to top, ${NIGHT}e6, transparent)`, color: SAGE }}>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <span className="num text-2xl font-semibold sm:hidden">{clock}</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.25em] opacity-70">{p < 0.02 ? `↓ ${t("l.dragHint")}` : t(`l.t${n}` as DictKey)}</span>
+          </div>
+          <div
+            ref={track}
+            role="slider"
+            tabIndex={0}
+            aria-label={t("l.dayTitle")}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(p * 100)}
+            aria-valuetext={clock}
+            className="relative h-10 cursor-grab active:cursor-grabbing touch-none"
+            onPointerDown={(e) => {
+              dragging.current = true;
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              scrub(e.clientX);
+            }}
+            onPointerMove={(e) => dragging.current && scrub(e.clientX)}
+            onPointerUp={() => (dragging.current = false)}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+              e.preventDefault();
+              const fwd = (e.key === "ArrowRight") !== (dir === "rtl");
+              scrollTo(Math.min(1, Math.max(0, (scene + (fwd ? 1 : -1)) / 6 + 0.02)), true);
             }}
           >
+            <span className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full" style={{ background: `${SAGE}33` }} />
+            <span className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded-full start-0" style={{ width: `${p * 100}%`, background: MUSTARD }} />
+            {SCENES.map((k, i) => (
+              <span key={k} className="absolute top-1/2 size-2 -translate-y-1/2 rounded-full" style={{ insetInlineStart: `calc(${(i / 6) * 100}% - 4px)`, background: i <= scene ? MUSTARD : `${SAGE}55` }} />
+            ))}
             <span
-              className="absolute inset-[34%] rounded-full transition-all duration-700"
-              style={{
-                background: on ? MUSTARD : `${SAGE}14`,
-                transform: isHot ? "scale(1.25)" : on ? "scale(1)" : "scale(0.55)",
-                boxShadow: on ? `0 0 ${isHot ? 40 : 26}px ${MUSTARD}${isHot ? "99" : "55"}` : "none",
-              }}
+              className="absolute top-1/2 size-7 -translate-y-1/2 rounded-full shadow-[0_0_24px_rgba(217,162,27,0.8)]"
+              style={{ insetInlineStart: `calc(${p * 100}% - 14px)`, background: MUSTARD }}
             />
-          </span>
-        );
-      })}
-      {ripples.map((r) => (
-        <span key={r.id} className="ripple absolute size-16 -ms-8 -mt-8 rounded-full pointer-events-none" style={{ left: r.x, top: r.y, border: `2px solid ${MUSTARD}` }} />
-      ))}
-    </div>
-  );
-};
-
-function Marquee() {
-  const { t } = useI18n();
-  const words = [t("l.study"), t("l.meet"), t("l.work"), t("l.movie"), t("l.ps"), t("l.art")];
-  const row = (
-    <span className="flex items-center gap-8 pe-8 shrink-0">
-      {words.map((w, i) => (
-        <span key={i} className="flex items-center gap-8 whitespace-nowrap">
-          <span className="font-display text-2xl sm:text-3xl font-bold">{w}</span>
-          <span aria-hidden className="size-3 rounded-full" style={{ background: i % 2 ? SAGE : TEAL }} />
-        </span>
-      ))}
-    </span>
-  );
-  return (
-    <div aria-hidden className="overflow-hidden py-4 border-b-2 border-strong" style={{ background: MUSTARD, color: TEAL }}>
-      <div className="marquee flex w-max" dir="ltr">
-        {row}
-        {row}
-      </div>
-    </div>
-  );
-}
-
-/** Sections below the first screen fade up as they scroll into view. */
-function useReveal() {
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
-    const els = [...document.querySelectorAll<HTMLElement>("[data-reveal]")];
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && ((e.target as HTMLElement).dataset.reveal = "shown", io.unobserve(e.target))),
-      { rootMargin: "0px 0px -8% 0px" },
-    );
-    for (const el of els) {
-      if (el.getBoundingClientRect().top > window.innerHeight) {
-        el.dataset.reveal = "pending";
-        io.observe(el);
-      }
-    }
-    return () => io.disconnect();
-  }, []);
-}
-
-/** 3D tilt that follows the pointer. */
-function useTilt<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const onPointerMove = (e: React.PointerEvent) => {
-    const el = ref.current;
-    if (!el || e.pointerType === "touch") return;
-    const r = el.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - 0.5;
-    const y = (e.clientY - r.top) / r.height - 0.5;
-    el.style.transform = `perspective(700px) rotateX(${(-y * 8).toFixed(2)}deg) rotateY(${(x * 10).toFixed(2)}deg) translateY(-4px)`;
-  };
-  const onPointerLeave = () => {
-    if (ref.current) ref.current.style.transform = "";
-  };
-  return { ref, onPointerMove, onPointerLeave };
-}
-
-const ACTS = [
-  { k: "study", icon: "M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5" },
-  { k: "meet", icon: "M3 4h18M5 4v10h14V4M12 14v4M8 21l4-3 4 3" },
-  { k: "work", icon: "M4 6h16v10H4zM2 19.5h20" },
-  { k: "movie", icon: "M3 5h18v12H3zM10 8.5v5l4.5-2.5zM8 21h8" },
-  { k: "ps", icon: "M7 8h10a4 4 0 0 1 4 4v1.5a2.5 2.5 0 0 1-4.6 1.4L15 13H9l-1.4 1.9A2.5 2.5 0 0 1 3 13.5V12a4 4 0 0 1 4-4zM7.5 10.5v3M6 12h3M15.5 11h.01M17.5 12.5h.01" },
-  { k: "art", icon: "M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1.4-1.2-1.6-1.2-2.9 0-1 .8-1.5 1.8-1.5H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8zM7.5 11h.01M10 7h.01M15 7.5h.01" },
-] as const;
-
-function Activities() {
-  const { t } = useI18n();
-  return (
-    <section className="mx-auto max-w-6xl py-20 grid gap-10" style={gutter}>
-      <h2 data-reveal className="font-display font-bold text-[clamp(36px,6vw,64px)] leading-tight text-balance">{t("l.doTitle")}</h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ACTS.map((a, i) => (
-          <ActivityCard key={a.k} index={i}>
-            <span className="relative size-16 grid place-items-center rounded-[2px] tile-corners transition-transform duration-500 group-hover:rotate-90">
-              <span className="absolute inset-0 grid place-items-center transition-transform duration-500 group-hover:-rotate-90">
-                <svg viewBox="0 0 24 24" className="size-8" fill="none" stroke={MUSTARD} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d={a.icon} />
-                </svg>
-              </span>
-            </span>
-            <h3 className="font-display text-2xl font-bold">{t(`l.${a.k}` as "l.study")}</h3>
-            <p className="text-muted leading-relaxed">{t(`l.${a.k}B` as "l.studyB")}</p>
-          </ActivityCard>
-        ))}
+          </div>
+          <div className="grid grid-cols-6 text-[11px] sm:text-xs font-semibold">
+            {SCENES.map((k, i) => (
+              <button key={k} type="button" onClick={() => scrollTo(i / 6 + 0.02, true)} className={cx("text-start py-1 transition-opacity", i === scene ? "opacity-100" : "opacity-45 hover:opacity-80")}>
+                {t(`l.t${k}` as DictKey)}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function ActivityCard({ index, children }: { index: number; children: React.ReactNode }) {
-  const tilt = useTilt<HTMLElement>();
+// ---------------------------------------------------------------- two doors in
+function Doors() {
+  const { t } = useI18n();
+  const doors = [
+    { href: "/menu", label: t("l.menu"), sub: t("l.scanLede"), fill: MUSTARD },
+    { href: "/menu?tab=book", label: t("l.book"), sub: t("l.roomsLede"), fill: SAGE },
+  ];
   return (
-    <article
-      {...tilt}
-      data-reveal
-      style={{ transitionDelay: `${(index % 3) * 90}ms` }}
-      className="group relative bg-surface border-2 border-line hover:border-strong rounded-[2px] p-6 grid gap-4 transition-[transform,border-color] duration-200 will-change-transform"
-    >
-      {children}
-    </article>
+    <section style={{ background: NIGHT }}>
+      {doors.map((d) => (
+        <a key={d.href} href={d.href} className="group relative block overflow-hidden border-t border-white/10" style={gutter}>
+          <span aria-hidden className="absolute inset-0 origin-bottom scale-y-0 transition-transform duration-500 ease-out group-hover:scale-y-100 group-focus-visible:scale-y-100" style={{ background: d.fill }} />
+          <span className="relative mx-auto max-w-7xl flex flex-wrap items-end justify-between gap-x-10 gap-y-3 py-10 sm:py-16 transition-colors duration-500 group-hover:text-[#173a39] group-focus-visible:text-[#173a39]">
+            <span className="font-display font-bold leading-none text-[clamp(44px,9vw,136px)]">
+              {d.label}
+              <span aria-hidden className="inline-block ms-4 transition-transform duration-500 group-hover:translate-x-3 rtl:group-hover:-translate-x-3 rtl:-scale-x-100">→</span>
+            </span>
+            <span className="max-w-[34ch] text-base sm:text-lg opacity-75 pb-2">{d.sub}</span>
+          </span>
+        </a>
+      ))}
+    </section>
   );
 }
 
-function Rooms({ catalog }: { catalog: Catalog | null }) {
+// ---------------------------------------------------------------- the floor (live rooms + prices)
+function Floor({ catalog }: { catalog: Catalog | null }) {
   const { t, n, money } = useI18n();
   const rooms = useMemo(() => catalog?.places.filter((p) => p.kind === "room") ?? [], [catalog]);
-  const modes = useMemo(() => {
-    if (!catalog) return [];
-    return catalog.modes.map((m) => {
-      const rates = rooms.length ? rooms.map((r) => rateFor(catalog.modes, catalog.mode_prices, r.id, m.id)) : [m.hourly_rate];
-      return { m, from: Math.min(...rates) };
-    });
-  }, [catalog, rooms]);
-  return (
-    <section className="border-y-2 border-line bg-surface-2/60">
-      <div className="mx-auto max-w-6xl py-20 grid gap-10 lg:grid-cols-[1fr_1.1fr] items-start" style={gutter}>
-        <div data-reveal className="grid gap-4">
-          <h2 className="font-display font-bold text-[clamp(36px,6vw,64px)] leading-tight">{t("l.roomsTitle")}</h2>
-          <p className="text-lg text-muted max-w-[42ch]">{t("l.roomsLede")}</p>
-          <a href="/menu?tab=book" className="justify-self-start h-12 px-5 inline-flex items-center rounded-[2px] font-bold border-2 border-strong bg-strong text-bg">{t("l.book")}</a>
-        </div>
-        <div data-reveal className="grid gap-4">
-          <ul className="grid gap-2">
-            {modes.length
-              ? modes.map(({ m, from }) => (
-                  <li key={m.id} className="flex items-baseline justify-between gap-4 border-b-2 border-line pb-3">
-                    <span className="font-display text-2xl font-bold">{n(m)}</span>
-                    <span className="text-muted text-sm whitespace-nowrap">
-                      {t("l.from")} <span className="num text-2xl font-bold text-ink">{money(from)}</span>{t("common.perHour")}
-                    </span>
-                  </li>
-                ))
-              : [0, 1, 2].map((i) => <li key={i} className="h-12 bg-surface rounded-[2px] animate-pulse" />)}
-          </ul>
-          {rooms.length ? (
-            <div className="grid gap-2">
-              <span className="text-sm font-semibold text-muted">{t("l.liveNow")}</span>
-              <div className="flex flex-wrap gap-2">
-                {rooms.map((r) => (
-                  <span key={r.id} className={cx("inline-flex items-center gap-2 h-10 px-3 rounded-[2px] border-2 font-semibold text-sm", r.busy ? "border-busy bg-busy-bg text-busy" : "border-free bg-free-bg text-free")}>
-                    <span className="live-pulse inline-flex"><StatusDot tone={r.busy ? "busy" : "free"} /></span> {n(r)} · {r.busy ? t("common.inUse") : t("common.free")}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </section>
-  );
-}
+  const tables = useMemo(() => catalog?.places.filter((p) => p.kind === "table") ?? [], [catalog]);
+  const [sel, setSel] = useState<string | null>(null);
+  const room = rooms.find((r) => r.id === sel) ?? rooms[0];
+  const pattern = `radial-gradient(circle at 0 0, ${SAGE}12 0 20%, transparent 20.5%), radial-gradient(circle at 100% 0, ${SAGE}12 0 20%, transparent 20.5%), radial-gradient(circle at 0 100%, ${SAGE}12 0 20%, transparent 20.5%), radial-gradient(circle at 100% 100%, ${SAGE}12 0 20%, transparent 20.5%)`;
 
-function HowItWorks() {
-  const { t } = useI18n();
-  const steps = [t("l.how1"), t("l.how2"), t("l.how3")];
-  return (
-    <section className="mx-auto max-w-6xl py-20 grid gap-10" style={gutter}>
-      <h2 data-reveal className="font-display font-bold text-[clamp(36px,6vw,64px)] leading-tight">{t("l.howTitle")}</h2>
-      <ol className="grid gap-4 md:grid-cols-3">
-        {steps.map((s, i) => (
-          <li key={i} data-reveal style={{ transitionDelay: `${i * 140}ms` }} className="grid gap-4 content-start">
-            <span className="size-14 grid place-items-center rounded-[2px] font-display text-3xl font-bold num" style={{ background: MUSTARD, color: TEAL }}>{i + 1}</span>
-            <span className="text-xl font-semibold leading-snug max-w-[24ch]">{s}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function Cafe({ catalog }: { catalog: Catalog | null }) {
-  const { t, n, money } = useI18n();
-  const items = (catalog?.items ?? []).filter((i) => i.available).slice(0, 6);
-  if (catalog && !items.length) return null;
-  return (
-    <section className="border-t-2 border-line">
-      <div className="mx-auto max-w-6xl py-20 grid gap-8" style={gutter}>
-        <div data-reveal className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="font-display font-bold text-[clamp(36px,6vw,64px)] leading-tight">{t("l.cafeTitle")}</h2>
-          <a href="/menu" className="h-11 px-4 inline-flex items-center rounded-[2px] font-semibold border-2 border-strong">{t("l.fullMenu")}</a>
-        </div>
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {(items.length ? items : Array.from({ length: 6 }, () => null)).map((it, i) =>
-            it ? (
-              <a key={it.id} href="/menu" data-reveal style={{ transitionDelay: `${(i % 3) * 80}ms` }} className="group flex items-center gap-4 bg-surface border-2 border-line hover:border-strong hover:-translate-y-1 transition-transform rounded-[2px] p-3">
-                {it.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={it.image_url} alt="" className="size-16 object-cover rounded-[2px]" loading="lazy" />
-                ) : (
-                  <span aria-hidden className="size-16 shrink-0 rounded-[2px] tile-pattern" />
-                )}
-                <span className="grid min-w-0">
-                  <span className="font-semibold truncate">{n(it)}</span>
-                  <span className="num text-muted">{money(it.price)}</span>
-                </span>
-              </a>
-            ) : (
-              <span key={i} className="h-[88px] bg-surface-2 rounded-[2px] animate-pulse" />
-            ),
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Visit() {
-  const { t } = useI18n();
   return (
     <section style={{ background: TEAL, color: SAGE }}>
-      <div className="tile-stripe" aria-hidden />
-      <div className="mx-auto max-w-6xl py-20 grid gap-8 lg:grid-cols-2 items-center" style={gutter}>
-        <div data-reveal className="grid gap-4">
-          <h2 className="font-display font-bold text-[clamp(40px,7vw,80px)] leading-[1]">{t("l.visitTitle")}</h2>
-          <p className="text-lg max-w-[40ch]" style={{ color: `${SAGE}cc` }}>{t("l.visitLede")}</p>
-          <p className="font-semibold" style={{ color: MUSTARD }}>{t("l.openLate")}</p>
+      <div className="mx-auto max-w-7xl py-20 sm:py-28 grid gap-10 lg:grid-cols-[1.4fr_1fr] items-start" style={gutter}>
+        <div className="grid gap-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <h2 className="font-display font-bold text-[clamp(52px,9vw,128px)] leading-[0.85]">{t("l.floorTitle")}</h2>
+            <p className="max-w-[34ch] opacity-75">{t("l.floorLede")}</p>
+          </div>
+          <div className="grid gap-[6px] p-[6px] rounded-[2px]" style={{ gridTemplateColumns: `repeat(${Math.max(rooms.length, 3)}, minmax(0, 1fr))`, background: "#0f2a29", backgroundImage: pattern, backgroundSize: "40px 40px" }}>
+            {(rooms.length ? rooms : [null, null, null]).map((r, i) =>
+              r ? (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setSel(r.id)}
+                  aria-pressed={room?.id === r.id}
+                  className={cx("aspect-[4/5] sm:aspect-[5/4] rounded-[2px] border-2 p-3 text-start grid content-between transition-all duration-300", room?.id === r.id ? "scale-[1.03] shadow-[0_0_0_4px_rgba(217,162,27,0.25)]" : "hover:scale-[1.015]")}
+                  style={{ borderColor: room?.id === r.id ? MUSTARD : r.busy ? "#f0756c" : "#4cc38a", background: r.busy ? "rgba(240,117,108,0.14)" : "rgba(76,195,138,0.12)" }}
+                >
+                  <span className="font-display text-xl sm:text-3xl font-bold">{n(r)}</span>
+                  <span className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
+                    <span className="live-pulse size-2.5 rounded-full" style={{ background: r.busy ? "#f0756c" : "#4cc38a" }} />
+                    {r.busy ? t("common.inUse") : t("common.free")}
+                  </span>
+                </button>
+              ) : (
+                <span key={i} className="aspect-[4/5] sm:aspect-[5/4] rounded-[2px] bg-white/5 animate-pulse" />
+              ),
+            )}
+            <div className="col-span-full grid grid-cols-6 gap-2 py-7 px-2">
+              {(tables.length ? tables : Array.from({ length: 6 }, () => null)).slice(0, 12).map((tb, i) => (
+                <span key={tb?.id ?? i} className="grid place-items-center">
+                  <span className="size-8 sm:size-10 rounded-full border-2" style={{ borderColor: tb?.busy ? "#f0756c" : `${SAGE}55`, background: tb?.busy ? "rgba(240,117,108,0.25)" : "transparent" }} />
+                </span>
+              ))}
+              <span className="col-span-full text-center text-[11px] uppercase tracking-[0.3em] opacity-50">{t("l.tablesZone")}</span>
+            </div>
+            <div className="col-span-full h-10 rounded-[2px] grid place-items-center text-[11px] uppercase tracking-[0.3em] font-semibold" style={{ background: MUSTARD, color: TEAL }}>{t("l.counterZone")}</div>
+          </div>
         </div>
-        <div className="grid gap-3">
-          <a href={`tel:${VENUE.phone}`} className="flex items-center justify-between gap-4 rounded-[2px] border-2 p-5 hover:bg-white/5" style={{ borderColor: `${SAGE}55` }}>
-            <span className="grid">
-              <span className="text-sm" style={{ color: `${SAGE}aa` }}>{t("l.call")}</span>
-              <span className="num text-[clamp(20px,5.4vw,40px)] font-bold whitespace-nowrap">{VENUE.phoneDisplay}</span>
-            </span>
-            <span className="size-14 grid place-items-center rounded-full transition-transform hover:scale-110" style={{ background: MUSTARD, color: TEAL, boxShadow: `0 0 0 0 ${MUSTARD}` }}><span className="live-pulse inline-flex"><PhoneIcon big /></span></span>
-          </a>
-          <a href={VENUE.mapUrl} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-4 rounded-[2px] border-2 p-5 hover:bg-white/5" style={{ borderColor: `${SAGE}55` }}>
-            <span className="text-2xl font-bold">{t("l.directions")}</span>
-            <span className="size-14 grid place-items-center rounded-full border-2" style={{ borderColor: SAGE }}><PinIcon big /></span>
+
+        <div className="lg:sticky lg:top-10 grid gap-5 border-t-2 lg:border-t-0 lg:border-s-2 pt-6 lg:pt-0 lg:ps-10" style={{ borderColor: `${SAGE}33` }}>
+          <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("l.pickRoom")}</span>
+          <h3 key={room?.id} className="word-in font-display font-bold text-6xl">{room ? n(room) : "…"}</h3>
+          <ul className="grid">
+            {(catalog?.modes ?? []).map((m) => (
+              <li key={m.id} className="flex items-baseline gap-3 py-3 border-b" style={{ borderColor: `${SAGE}22` }}>
+                <span className="font-semibold">{n(m)}</span>
+                <span aria-hidden className="flex-1 border-b-2 border-dotted -translate-y-1" style={{ borderColor: `${SAGE}40` }} />
+                <span className="num font-bold text-xl whitespace-nowrap">
+                  {catalog ? money(rateFor(catalog.modes, catalog.mode_prices, room?.id, m.id)) : ""}
+                  <span className="text-sm font-medium opacity-60">{t("common.perHour")}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <a href="/menu?tab=book" className="justify-self-start h-14 px-7 inline-flex items-center rounded-full font-bold text-lg transition-transform hover:scale-[1.04]" style={{ background: MUSTARD, color: TEAL }}>
+            {t("l.bookThis")}
           </a>
         </div>
       </div>
@@ -466,19 +290,83 @@ function Visit() {
   );
 }
 
-function PhoneIcon({ big }: { big?: boolean }) {
+// ---------------------------------------------------------------- the menu board
+function Board({ catalog }: { catalog: Catalog | null }) {
+  const { t, n, money } = useI18n();
+  const items = (catalog?.items ?? []).filter((i) => i.available).slice(0, 10);
   return (
-    <svg viewBox="0 0 24 24" className={big ? "size-7" : "size-5"} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.8 2.1z" />
-    </svg>
+    <section style={{ background: SAGE, color: TEAL }}>
+      <div className="mx-auto max-w-7xl py-20 sm:py-28 grid gap-12 lg:grid-cols-[1fr_1.2fr] items-start" style={gutter}>
+        <div className="grid content-start gap-6">
+          <h2 className="font-display font-bold text-[clamp(52px,8.5vw,120px)] leading-[0.88]">{t("l.scanTitle")}</h2>
+          <p className="text-lg max-w-[38ch] opacity-80">{t("l.scanLede")}</p>
+          <ScanTile />
+        </div>
+        <div className="rounded-[4px] p-6 sm:p-10 -rotate-[0.6deg] shadow-[0_30px_60px_-30px_rgba(8,23,22,0.6)]" style={{ background: TEAL, color: SAGE }}>
+          <div className="flex items-baseline justify-between gap-4 mb-6">
+            <h3 className="font-display text-3xl font-bold">{t("l.boardTitle")}</h3>
+            <a href="/menu" className="text-sm font-semibold underline underline-offset-4" style={{ textDecorationColor: MUSTARD }}>{t("l.fullMenu")}</a>
+          </div>
+          <ul className="grid">
+            {(items.length ? items : Array.from({ length: 8 }, () => null)).map((it, i) =>
+              it ? (
+                <li key={it.id} className="flex items-baseline gap-3 py-3">
+                  <span className="text-lg font-semibold">{n(it)}</span>
+                  <span aria-hidden className="flex-1 border-b-2 border-dotted -translate-y-1" style={{ borderColor: `${SAGE}35` }} />
+                  <span className="num text-lg font-bold" style={{ color: MUSTARD }}>{money(it.price)}</span>
+                </li>
+              ) : (
+                <li key={i} className="h-11 my-1 rounded-[2px] bg-white/5 animate-pulse" />
+              ),
+            )}
+          </ul>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function PinIcon({ big }: { big?: boolean }) {
+/** The code on every table, made of dots; it reshuffles when you touch it. */
+function ScanTile() {
+  const [seed, setSeed] = useState(7);
+  const cells = useMemo(
+    () =>
+      Array.from({ length: 49 }, (_, i) => {
+        const r = Math.floor(i / 7), c = i % 7;
+        const finder = (r < 2 && c < 2) || (r < 2 && c > 4) || (r > 4 && c < 2);
+        const h = Math.sin((i + 1) * 12.9898 + seed * 78.233) * 43758.5453;
+        return finder || h - Math.floor(h) > 0.48;
+      }),
+    [seed],
+  );
   return (
-    <svg viewBox="0 0 24 24" className={big ? "size-7" : "size-5"} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" />
-      <circle cx="12" cy="10" r="2.5" />
-    </svg>
+    <button type="button" aria-hidden tabIndex={-1} onPointerEnter={() => setSeed((s) => s + 1)} onClick={() => setSeed((s) => s + 1)} className="justify-self-start grid grid-cols-7 gap-1.5 p-4 rounded-[4px] rotate-[1.5deg] transition-transform hover:rotate-0" style={{ background: TEAL }}>
+      {cells.map((on, i) => (
+        <span key={i} className="size-5 sm:size-7 rounded-full transition-all duration-300" style={{ background: on ? (i % 11 === 0 ? MUSTARD : SAGE) : "transparent", transform: on ? "scale(1)" : "scale(0.3)", transitionDelay: `${(i % 7) * 18}ms` }} />
+      ))}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------- the ending
+function Call() {
+  const { t } = useI18n();
+  return (
+    <section style={{ background: NIGHT, color: SAGE }}>
+      <div className="mx-auto max-w-7xl pt-24 pb-10 grid gap-8" style={gutter}>
+        <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("l.visitTitle")} · {t("l.openLate")}</span>
+        <a href={`tel:${VENUE.phone}`} className="group block num font-bold leading-none tracking-tight text-[clamp(40px,10.5vw,170px)] whitespace-nowrap" dir="ltr">
+          <span className="inline-block transition-colors duration-300 group-hover:text-[#d9a21b]">{VENUE.phoneDisplay}</span>
+        </a>
+        <div className="flex flex-wrap gap-3">
+          <a href={`tel:${VENUE.phone}`} className="h-14 px-7 inline-flex items-center rounded-full font-bold text-lg" style={{ background: MUSTARD, color: TEAL }}>{t("l.call")}</a>
+          <a href={VENUE.mapUrl} target="_blank" rel="noreferrer" className="h-14 px-7 inline-flex items-center rounded-full font-bold text-lg border-2" style={{ borderColor: SAGE }}>{t("l.directions")} ↗</a>
+        </div>
+        <div className="mt-16 pt-6 border-t flex flex-wrap items-center justify-between gap-3 text-sm opacity-70" style={{ borderColor: `${SAGE}22`, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          <span className="flex items-center gap-3"><Logo light className="h-6" /> dotcowork.space</span>
+          <a href="/staff" className="underline">{t("l.staff")}</a>
+        </div>
+      </div>
+    </section>
   );
 }
