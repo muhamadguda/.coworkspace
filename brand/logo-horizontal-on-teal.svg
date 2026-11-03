@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 542 222" width="1084" height="444"><rect width="542" height="222" fill="#173A39"/>
+  <svg x="36" y="36" viewBox="0 0 150 150" width="150" height="150">  <defs><clipPath id="hm"><rect width="150" height="150" rx="15.0"/></clipPath></defs>
+  <g clip-path="url(#hm)">
+    <rect width="150" height="150" fill="#0F2A29"/>
+    <circle cx="0" cy="0" r="34.5" fill="#EAF0EA"/><circle cx="150" cy="0" r="34.5" fill="#EAF0EA"/>
+    <circle cx="0" cy="150" r="34.5" fill="#EAF0EA"/><circle cx="150" cy="150" r="34.5" fill="#EAF0EA"/>
+    <circle cx="75.0" cy="75.0" r="25.500000000000004" fill="#D9A21B"/>
+  </g>
+</svg>
+  <g transform="translate(232,36)"><path fill="#EAF0EA" fill-rule="evenodd" d="M0,100a50,50 0 1,0 100,0a50,50 0 1,0 -100,0zM20,100a30,30 0 1,1 60,0a30,30 0 1,1 -60,0z"/><path fill="#EAF0EA" d="M80,150V10.0a10.0,10.0 0 0,1 20,0V150z"/><path fill="#EAF0EA" d="M232,150V28.0a10.0,10.0 0 0,1 20,0V150z"/><rect fill="#EAF0EA" x="212" y="52" width="60" height="20" rx="0"/><circle cx="162" cy="100" r="44" fill="#D9A21B"/></g>
+</svg>
