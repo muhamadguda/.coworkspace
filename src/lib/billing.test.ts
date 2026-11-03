@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeRoomFee, splitEqual, billTotals, discountWithinCap, businessDay } from "./billing.ts";
+import { computeRoomFee, splitEqual, billTotals, discountWithinCap, businessDay, bundleCredit } from "./billing.ts";
 
 const S = { min_session_minutes: 60, billing_step_minutes: 15, grace_minutes: 10 };
 const t0 = "2026-11-03T16:00:00.000Z";
@@ -98,4 +98,21 @@ test("business day rolls over at 5am Cairo", () => {
   assert.equal(businessDay("2026-11-04T00:00:00Z", 5), "2026-11-03");
   // 06:00 Cairo on Nov 4 = 04:00Z -> Nov 4
   assert.equal(businessDay("2026-11-04T04:00:00Z", 5), "2026-11-04");
+});
+
+test("bundle covers segments then rounding minutes, capped by balance", () => {
+  const r = computeRoomFee({
+    segments: [
+      { mode_id: "a", rate: 120, started_at: t0, ended_at: at(50) },
+      { mode_id: "b", rate: 150, started_at: at(50), ended_at: null },
+    ],
+    kind: "open", plannedEnd: null, end: at(70), settings: S,
+  });
+  // full balance: covers all 75 billed minutes = whole fee
+  assert.deepEqual(bundleCredit(r, 600, null), { minutes: 75, amount: 162.5 });
+  // 60 minutes left: 50 @120 + 10 @150 = 100 + 25
+  assert.deepEqual(bundleCredit(r, 60, null), { minutes: 60, amount: 125 });
+  // tied to mode b: 20 + 5 rounding minutes @150
+  assert.deepEqual(bundleCredit(r, 600, "b"), { minutes: 25, amount: 62.5 });
+  assert.deepEqual(bundleCredit(r, 0, null), { minutes: 0, amount: 0 });
 });

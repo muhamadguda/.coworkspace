@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { El_Messiri, IBM_Plex_Mono, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/Providers";
 
 const messiri = El_Messiri({ variable: "--font-messiri", subsets: ["arabic", "latin"], weight: ["500", "700"] });
@@ -13,6 +14,10 @@ export const metadata: Metadata = {
   applicationName: "dot",
   metadataBase: new URL("https://dotcowork.space"),
   appleWebApp: { capable: true, title: "dot", statusBarStyle: "default" },
+  keywords: ["co-working", "coworking space", "café", "study space", "meeting room", "PlayStation", "مساحة عمل", "كوورك", "مذاكرة", "قاعة اجتماعات", "dot"],
+  openGraph: { siteName: "dot", type: "website", locale: "ar_EG", alternateLocale: ["en_US"], url: "https://dotcowork.space" },
+  twitter: { card: "summary_large_image" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -36,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

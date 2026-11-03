@@ -7,6 +7,7 @@ import type { Category, MenuItem, OptionGroup } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, Textarea, Toggle, cx, useToast } from "@/components/ui";
 import { dispatch, refresh, uuid } from "../store";
 import { useOnline, useSnap } from "../hooks";
+import { StockSheet } from "../components/StockSheet";
 
 const slug = () => Math.random().toString(36).slice(2, 8);
 
@@ -109,6 +110,7 @@ function ItemSheet({ item, onClose }: { item: Partial<MenuItem>; onClose: () => 
   const save = useSave();
   const [v, setV] = useState<Partial<MenuItem>>({ ...item, options: structuredClone(item.options ?? []) });
   const [busy, setBusy] = useState(false);
+  const [stocking, setStocking] = useState(false);
   const [uploading, setUploading] = useState(false);
   const opts = v.options ?? [];
   const setOpts = (o: OptionGroup[]) => setV({ ...v, options: o });
@@ -132,6 +134,7 @@ function ItemSheet({ item, onClose }: { item: Partial<MenuItem>; onClose: () => 
     const row = {
       category_id: v.category_id, name_ar: v.name_ar!.trim(), name_en: v.name_en!.trim(), desc_ar: (v.desc_ar ?? "").trim(), desc_en: (v.desc_en ?? "").trim(),
       price: Number(v.price) || 0, options: clean, available: !!v.available, active: !!v.active, sort: Number(v.sort) || 0, image_url: v.image_url ?? null,
+      track_stock: !!v.track_stock, low_stock_at: Math.max(0, Number(v.low_stock_at) || 0),
     };
     const ok = await save(() => (item.id ? supabase().from("menu_items").update(row).eq("id", item.id) : supabase().from("menu_items").insert(row)));
     setBusy(false);
@@ -157,6 +160,22 @@ function ItemSheet({ item, onClose }: { item: Partial<MenuItem>; onClose: () => 
         <Toggle checked={!!v.available} onChange={(x) => setV({ ...v, available: x })} label={t("m.available")} />
         <Toggle checked={!!v.active} onChange={(x) => setV({ ...v, active: x })} label={t("m.visible")} />
       </div>
+
+      <div className="grid gap-2 border-2 border-line rounded-[2px] p-3">
+        <Toggle checked={!!v.track_stock} onChange={(x) => setV({ ...v, track_stock: x })} label={t("sk.track")} />
+        {v.track_stock ? (
+          <>
+            <p className="text-xs text-muted">{t("sk.hint")}</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label={t("sk.lowAt")}><Input id="it-low" numeric className="w-28" value={String(v.low_stock_at ?? 0)} onChange={(e) => setV({ ...v, low_stock_at: e.target.value as unknown as number })} /></Field>
+              {item.id && item.track_stock ? (
+                <Button size="sm" onClick={() => setStocking(true)}>{t("sk.qty")}: <span className="num">{snap.items.find((x) => x.id === item.id)?.stock_qty ?? 0}</span></Button>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </div>
+      {stocking && item.id ? <StockSheet item={item as MenuItem} onClose={() => setStocking(false)} /> : null}
 
       <div className="grid gap-2">
         <span className="font-semibold">{t("m.photo")}</span>

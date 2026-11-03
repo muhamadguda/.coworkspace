@@ -161,7 +161,7 @@ export async function refresh() {
   refreshing = true;
   const startedAt = Date.now();
   try {
-    const snap = await rpc<Snapshot>("staff_snapshot");
+    const snap = await rpc<Snapshot>("staff_snapshot2");
     // Drop ops the server confirmed before this snapshot was taken.
     const queue = state.queue.filter((q) => q.state === "pending" || (q.sentAt ?? 0) > startedAt);
     set({ base: snap, queue, online: true, lastSyncAt: Date.now() });
@@ -196,7 +196,7 @@ async function flush() {
       if (!next) break;
       const { state: _s, sentAt: _a, by: _b, ...op } = next;
       try {
-        await rpc("staff_op2", { op });
+        await rpc("staff_op3", { op });
         set({ queue: state.queue.map((q) => (q.id === next.id ? { ...q, state: "sent" as const, sentAt: Date.now() } : q)), online: true });
       } catch (e) {
         if (isAuthError(e) && errorCode(e) !== "bad_owner_credentials") {
@@ -239,6 +239,6 @@ export function dispatch(type: OpType, payload: Record<string, unknown>): string
 export async function dispatchOnline(type: OpType, payload: Record<string, unknown>, override?: { phone: string; password: string }) {
   if (state.queue.some((q) => q.state === "pending")) await flush();
   const op = { id: uuid(), type, at: new Date().toISOString(), payload, override };
-  await rpc("staff_op2", { op });
+  await rpc("staff_op3", { op });
   await refresh();
 }

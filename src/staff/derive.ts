@@ -1,5 +1,5 @@
 import { businessDay, computeRoomFee, round2 } from "@/lib/billing";
-import type { Bill, Booking, Customer, Order, OrderItem, Place, Session, Snapshot } from "@/lib/types";
+import type { Bill, Booking, Customer, CustomerBundle, Order, OrderItem, Place, Session, Snapshot } from "@/lib/types";
 import { itemsTotalFor } from "./reducer";
 
 export const activeSessionAt = (s: Snapshot, placeId: string) => s.sessions.find((x) => x.place_id === placeId && x.status === "active");
@@ -68,3 +68,19 @@ export function searchCustomers(s: Snapshot, q: string, limit = 20): Customer[] 
 }
 
 export const placeName = (p: Place | undefined, lang: "ar" | "en") => (p ? (lang === "ar" ? p.name_ar : p.name_en) : "");
+
+/** Usable hour bundles of a customer, soonest to expire first. */
+export function activeBundlesOf(s: Snapshot, customerId: string, now = new Date()): CustomerBundle[] {
+  const cid = s.aliases?.[customerId] ?? customerId;
+  return (s.customer_bundles ?? [])
+    .filter((b) => b.customer_id === cid && !b.voided_at && Date.parse(b.expires_at) > now.getTime() && b.minutes_total - b.minutes_used > 0.5)
+    .sort((a, b) => a.expires_at.localeCompare(b.expires_at));
+}
+
+export const bundleOfItem = (s: Snapshot, itemId: string) => (s.customer_bundles ?? []).find((b) => b.order_item_id === itemId);
+export const bundleUseOfSession = (s: Snapshot, sessionId: string) => (s.bundle_uses ?? []).filter((u) => u.session_id === sessionId);
+
+/** "7.5" style hours, no trailing zeros. */
+export const fmtHours = (minutes: number) => String(Math.round((minutes / 60) * 10) / 10);
+
+export const isLowStock = (m: { track_stock?: boolean; stock_qty?: number; low_stock_at?: number }) => !!m.track_stock && (m.stock_qty ?? 0) <= (m.low_stock_at ?? 0);

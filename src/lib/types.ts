@@ -52,7 +52,30 @@ export type MenuItem = {
   available: boolean;
   active: boolean;
   sort: number;
+  track_stock?: boolean;
+  stock_qty?: number;
+  low_stock_at?: number;
+  stock_auto_off?: boolean;
 };
+
+export type BundlePlan = { id: string; name_ar: string; name_en: string; hours: number; price: number; valid_days: number; mode_id: string | null; active?: boolean; sort?: number };
+export type CustomerBundle = {
+  id: string;
+  customer_id: string;
+  plan_id: string | null;
+  name_ar: string;
+  name_en: string;
+  mode_id: string | null;
+  minutes_total: number;
+  minutes_used: number;
+  price: number;
+  order_item_id: string | null;
+  expires_at: string;
+  voided_at: string | null;
+  created_at: string;
+};
+export type BundleUse = { id: string; bundle_id: string; session_id: string; minutes: number; amount: number; at: string };
+export type StockMove = { id: number; menu_item_id: string; delta: number; qty_after: number; reason: string; note: string; at: string; by: string | null };
 
 export type Customer = {
   id: string;
@@ -203,6 +226,10 @@ export type Snapshot = {
   cash_outs: CashOut[];
   staff: StaffProfile[];
   mode_prices?: ModePrice[];
+  bundle_plans?: BundlePlan[];
+  customer_bundles?: CustomerBundle[];
+  bundle_uses?: BundleUse[];
+  stock_moves?: StockMove[];
 };
 
 export type Catalog = {
@@ -213,6 +240,7 @@ export type Catalog = {
   places: (Place & { busy: boolean })[];
   schedule: { place_id: string; starts_at: string; duration_minutes: number }[];
   mode_prices?: ModePrice[];
+  bundle_plans?: BundlePlan[];
 };
 
 // What a cart line sends to the server

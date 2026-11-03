@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { Bill } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Sheet, cx } from "@/components/ui";
-import { billItemsTotal, billRoomAmount, customerById, itemsOf, ordersOfBill, placeById } from "../derive";
+import { billItemsTotal, bundleOfItem, billRoomAmount, customerById, itemsOf, ordersOfBill, placeById } from "../derive";
 import { dispatch } from "../store";
 import { useNow, useSnap } from "../hooks";
 import { printBill } from "../receipts";
@@ -21,6 +21,7 @@ export function BillCard({ bill, compact }: { bill: Bill; compact?: boolean }) {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
+  const editingBundle = editing ? !!bundleOfItem(snap, editing) : false;
   const [editQty, setEditQty] = useState("1");
   const [handover, setHandover] = useState(false);
   const cust = customerById(snap, bill.customer_id);
@@ -133,20 +134,22 @@ export function BillCard({ bill, compact }: { bill: Bill; compact?: boolean }) {
               <Button variant="danger" disabled={!reason.trim()} onClick={() => { dispatch("edit_item", { item_id: editing, qty: 0, reason: reason.trim() }); setEditing(null); }}>
                 {t("bl.removeItem")}
               </Button>
-              <Button
+              {editingBundle ? null : <Button
                 variant="primary"
                 disabled={!reason.trim() || !(Number(editQty) >= 1 && Number(editQty) <= 50)}
                 onClick={() => { dispatch("edit_item", { item_id: editing, qty: Number(editQty), reason: reason.trim() }); setEditing(null); }}
               >
                 {t("common.save")}
-              </Button>
+              </Button>}
             </>
           }
         >
           <p className="font-semibold">{(() => { const it = snap.order_items.find((x) => x.id === editing); return it ? (lang === "ar" ? it.name_ar : it.name_en) : ""; })()}</p>
-          <Field label={t("common.qty")}>
-            <Input id="edit-qty" numeric inputMode="numeric" value={editQty} onChange={(e) => setEditQty(e.target.value.replace(/\D/g, "").slice(0, 2))} />
-          </Field>
+          {editingBundle ? <p className="text-sm text-muted">{t("bu.fixedQty")}</p> : (
+            <Field label={t("common.qty")}>
+              <Input id="edit-qty" numeric inputMode="numeric" value={editQty} onChange={(e) => setEditQty(e.target.value.replace(/\D/g, "").slice(0, 2))} />
+            </Field>
+          )}
           <Field label={t("d.reason")}>
             <Input id="edit-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />
           </Field>

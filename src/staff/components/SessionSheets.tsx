@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
-import { splitEqual } from "@/lib/billing";
+import { bundleCredit, round2, splitEqual } from "@/lib/billing";
 import { rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, Sheet, Toggle, cx } from "@/components/ui";
-import { billsInSession, customerById, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
+import { activeBundlesOf, billsInSession, customerById, fmtHours, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
 import { dispatch, uuid } from "../store";
 import { useNow, useSnap } from "../hooks";
 import { CustomerPicker } from "./CustomerPicker";
@@ -115,21 +115,30 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
   const [selected, setSelected] = useState<string[]>(() => bills.map((b) => b.id));
 
   const fee = useMemo(() => liveRoomFee(snap, session, now, chargeOverstay), [snap, session, now, chargeOverstay]);
+  // Booker's hour bundle (soonest to expire first). Only when the booker pays the room.
+  const bundle = activeBundlesOf(snap, session.booker_customer_id, now)
+    .filter((b) => !b.mode_id || fee.lines.some((l) => l.mode_id === b.mode_id))[0];
+  const [useBundle, setUseBundle] = useState(true);
+  const credit = bundle && split === "booker" && useBundle ? bundleCredit(fee, bundle.minutes_total - bundle.minutes_used, bundle.mode_id) : null;
+  const netFee = credit && credit.minutes > 0 ? round2(fee.fee - credit.amount) : fee.fee;
   const participants = !bookerBill
     ? []
     : split === "equal"
       ? [bookerBill.id, ...bills.filter((b) => b.id !== bookerBill.id && selected.includes(b.id)).map((b) => b.id)]
       : [bookerBill.id];
-  const shares = splitEqual(fee.fee, participants);
+  const shares = splitEqual(netFee, participants);
   const place = placeById(snap, session.place_id);
 
   function end() {
-    dispatch("end_session", { session_id: session.id, billed_minutes: fee.billedMinutes, room_fee: fee.fee, overstay_charged: fee.overstayCharged, split_mode: split, shares });
+    dispatch("end_session", {
+      session_id: session.id, billed_minutes: fee.billedMinutes, room_fee: netFee, overstay_charged: fee.overstayCharged, split_mode: split, shares,
+      ...(credit && credit.minutes > 0 && bundle ? { bundle: { id: uuid(), bundle_id: bundle.id, minutes: credit.minutes, amount: credit.amount } } : {}),
+    });
     onEnded();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={t("ss.endTitle", { place: n(place) })} footer={<Button variant="danger" size="lg" disabled={!bookerBill} onClick={end}>{t("ss.confirmEnd")} · <span className="num">{money(fee.fee)}</span></Button>}>
+    <Sheet open={open} onClose={onClose} title={t("ss.endTitle", { place: n(place) })} footer={<Button variant="danger" size="lg" disabled={!bookerBill} onClick={end}>{t("ss.confirmEnd")} · <span className="num">{money(netFee)}</span></Button>}>
       <div className="grid gap-1 text-sm">
         {fee.lines.map((l, i) => (
           <div key={i} className="flex justify-between gap-2">
@@ -148,6 +157,22 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
           <span className="num">{money(fee.fee)}</span>
         </div>
       </div>
+      {bundle ? (
+        <div className="grid gap-1 border-2 border-accent rounded-[2px] p-3">
+          <Toggle
+            checked={useBundle && split === "booker"}
+            onChange={setUseBundle}
+            label={<span>{t("bu.use")} · {n(bundle)} · <span className="num">{t("bu.left", { h: fmtHours(bundle.minutes_total - bundle.minutes_used) })}</span></span>}
+          />
+          {split !== "booker" ? <span className="text-xs text-muted">{t("bu.bookerOnly")}</span> : null}
+          {credit && credit.minutes > 0 ? (
+            <div className="flex justify-between gap-2 text-sm font-semibold">
+              <span>{t("bu.covers", { t: dur(Math.round(credit.minutes)) })}</span>
+              <span className="num">−{money(credit.amount)}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {fee.overstayBeyondGrace ? (
         <div className="grid gap-1 border-2 border-warn rounded-[2px] p-3">
           <span className="font-semibold">{t("ss.overstay", { t: dur(fee.overstayMinutes) })}</span>

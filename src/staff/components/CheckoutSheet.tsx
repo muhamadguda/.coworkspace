@@ -10,7 +10,7 @@ import { Button, Field, Input, Segmented, Sheet, Toggle, cx, useToast } from "@/
 import { billItemsTotal, customerById, itemsOf, ordersOfBill } from "../derive";
 import { dispatch, dispatchOnline, getState, uuid } from "../store";
 import { useIsOwner, useOnline, useSnap } from "../hooks";
-import { printBill } from "../receipts";
+import { printBill, whatsappBill } from "../receipts";
 
 const METHODS: PayMethod[] = ["cash", "instapay", "vf_cash"];
 
@@ -34,6 +34,7 @@ export function CheckoutSheet({ bill, onClose }: { bill: Bill; onClose: () => vo
   const [ownerPhone, setOwnerPhone] = useState("");
   const [ownerPw, setOwnerPw] = useState("");
   const [print, setPrint] = useState(true);
+  const [wa, setWa] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,9 +77,10 @@ export function CheckoutSheet({ bill, onClose }: { bill: Bill; onClose: () => vo
       if (needsOwner) await dispatchOnline("checkout", payload, { phone: normalizePhone(ownerPhone), password: ownerPw });
       else dispatch("checkout", payload);
       toast(t("co.done"));
-      if (print) {
-        const closed = getState().view?.bills.find((b) => b.id === bill.id);
-        if (closed && getState().view) printBill(getState().view!, closed, lang, t);
+      const closed = getState().view?.bills.find((b) => b.id === bill.id);
+      if (closed && getState().view) {
+        if (wa) whatsappBill(getState().view!, closed, lang, t);
+        if (print) printBill(getState().view!, closed, lang, t);
       }
       onClose();
     } catch (e) {
@@ -97,6 +99,7 @@ export function CheckoutSheet({ bill, onClose }: { bill: Bill; onClose: () => vo
       footer={
         <>
           <Toggle checked={print} onChange={setPrint} label={t("co.autoPrint")} />
+          <Toggle checked={wa} onChange={setWa} label={t("wa.receipt")} />
           <Button variant="accent" size="lg" busy={busy} disabled={!canSubmit} onClick={submit}>
             {t("co.confirm")} · <span className="num">{money(tot.total)}</span>
           </Button>

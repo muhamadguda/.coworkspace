@@ -1,6 +1,6 @@
 // dot service worker: keeps the app shell available offline so the counter
 // can reload /staff without internet. Data sync is handled by the app itself.
-const VERSION = "dot-v3";
+const VERSION = "dot-v4";
 const SHELL = ["/", "/menu", "/staff", "/logo-wordmark.svg", "/logo-mark.svg", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {

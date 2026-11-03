@@ -5,8 +5,8 @@ import QRCode from "qrcode";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { printHtml } from "@/lib/print";
-import type { Mode, Place, Settings } from "@/lib/types";
-import { Button, Card, Field, Input, Pill, SectionTitle, Sheet, Toggle, cx, useToast } from "@/components/ui";
+import type { BundlePlan, Mode, Place, Settings } from "@/lib/types";
+import { Button, Card, Field, Input, Pill, SectionTitle, Select, Sheet, Toggle, cx, useToast } from "@/components/ui";
 import { refresh } from "../store";
 import { useOnline, useSnap } from "../hooks";
 
@@ -19,6 +19,7 @@ export function SettingsAdmin() {
       <GeneralSettingsKeyed />
       <ModesSettings />
       <RoomPrices />
+      <BundlePlans />
       <PlacesSettings />
     </div>
   );
@@ -92,6 +93,60 @@ function GeneralSettings() {
         <Field label={t("st.maxPercent")}><Input id="st-pct" numeric {...num("staff_discount_max_percent")} /></Field>
         <Field label={t("st.maxAmount")}><Input id="st-amt" numeric {...num("staff_discount_max_amount")} /></Field>
       </fieldset>
+    </Card>
+  );
+}
+
+function BundlePlans() {
+  const { t, n, money } = useI18n();
+  const snap = useSnap();
+  const online = useOnline();
+  const after = useAfterSave();
+  const [edit, setEdit] = useState<Partial<BundlePlan> | null>(null);
+  const plans = snap.bundle_plans ?? [];
+  const modeName = (id: string | null | undefined) => (id ? n(snap.modes.find((m) => m.id === id)) : t("bu.anyMode"));
+  return (
+    <Card className="p-4 grid gap-3">
+      <SectionTitle action={<Button size="sm" variant="accent" disabled={!online} onClick={() => setEdit({ name_ar: "", name_en: "", hours: 10, price: 0, valid_days: 30, mode_id: null, sort: plans.length + 1, active: true })}>{t("bu.new")}</Button>}>{t("bu.title")}</SectionTitle>
+      <p className="text-sm text-muted">{t("bu.hint")}</p>
+      <div className="divide-y-2 divide-line">
+        {plans.map((b) => (
+          <div key={b.id} className={cx("flex flex-wrap items-center justify-between gap-2 py-2", b.active === false && "opacity-50")}>
+            <span className="grid">
+              <span className="font-semibold">{n(b)}</span>
+              <span className="text-xs text-muted"><span className="num">{b.hours}</span> h · {modeName(b.mode_id)} · <span className="num">{b.valid_days}</span> {t("bu.validDays")}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="num font-bold">{money(b.price)}</span>
+              <Button size="sm" disabled={!online} onClick={() => setEdit(b)}>{t("common.edit")}</Button>
+            </span>
+          </div>
+        ))}
+      </div>
+      {edit ? (
+        <Sheet open onClose={() => setEdit(null)} title={edit.id ? n(edit as BundlePlan) : t("bu.new")} footer={<Button variant="primary" disabled={!edit.name_ar?.trim() || !edit.name_en?.trim() || !(Number(edit.hours) > 0)} onClick={async () => {
+          const row = {
+            name_ar: edit.name_ar!.trim(), name_en: edit.name_en!.trim(), hours: Number(edit.hours) || 0, price: Number(edit.price) || 0,
+            valid_days: Math.min(730, Math.max(1, Number(edit.valid_days) || 30)), mode_id: edit.mode_id || null, sort: Number(edit.sort) || 0, active: edit.active !== false,
+          };
+          if (await after(edit.id ? supabase().from("bundle_plans").update(row).eq("id", edit.id) : supabase().from("bundle_plans").insert(row))) setEdit(null);
+        }}>{t("common.save")}</Button>}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t("m.nameAr")}><Input id="bu-ar" dir="rtl" value={edit.name_ar ?? ""} onChange={(e) => setEdit({ ...edit, name_ar: e.target.value })} placeholder="باقة ١٠ ساعات" /></Field>
+            <Field label={t("m.nameEn")}><Input id="bu-en" dir="ltr" value={edit.name_en ?? ""} onChange={(e) => setEdit({ ...edit, name_en: e.target.value })} placeholder="10-hour pack" /></Field>
+            <Field label={t("bu.hours")}><Input id="bu-hours" numeric value={String(edit.hours ?? "")} onChange={(e) => setEdit({ ...edit, hours: e.target.value as unknown as number })} /></Field>
+            <Field label={t("bu.price")}><Input id="bu-price" numeric value={String(edit.price ?? "")} onChange={(e) => setEdit({ ...edit, price: e.target.value as unknown as number })} /></Field>
+            <Field label={t("bu.validDays")}><Input id="bu-days" numeric value={String(edit.valid_days ?? "")} onChange={(e) => setEdit({ ...edit, valid_days: e.target.value as unknown as number })} /></Field>
+            <Field label={t("bu.mode")}>
+              <Select id="bu-mode" value={edit.mode_id ?? ""} onChange={(e) => setEdit({ ...edit, mode_id: e.target.value || null })}>
+                <option value="">{t("bu.anyMode")}</option>
+                {snap.modes.filter((m) => m.active).map((m) => <option key={m.id} value={m.id}>{n(m)}</option>)}
+              </Select>
+            </Field>
+          </div>
+          <Toggle checked={edit.active !== false} onChange={(x) => setEdit({ ...edit, active: x })} label={t("st.active")} />
+        </Sheet>
+      ) : null}
     </Card>
   );
 }
@@ -277,6 +332,23 @@ function PlacesSettings() {
             <Field label={t("m.sort")}><Input id="pl-sort" numeric value={String(edit.sort ?? 0)} onChange={(e) => setEdit({ ...edit, sort: Number(e.target.value) || 0 })} /></Field>
           </div>
           <Toggle checked={!!edit.active} onChange={(x) => setEdit({ ...edit, active: x })} label={t("st.active")} />
+          {edit.id ? (
+            <Button variant="danger" size="sm" className="justify-self-start" onClick={async () => {
+              const sb = supabase();
+              if (snap.sessions.some((x) => x.place_id === edit.id && x.status === "active") || snap.bills.some((b) => b.place_id === edit.id && b.status === "open")) {
+                toast(t("st.placeInUse"), "error");
+                return;
+              }
+              await sb.from("room_mode_prices").delete().eq("place_id", edit.id!);
+              const { error } = await sb.from("places").delete().eq("id", edit.id!);
+              if (error && (error as { code?: string }).code === "23503") {
+                // Has history (bills, sessions, bookings): hide it instead so reports stay intact.
+                if (await after(sb.from("places").update({ active: false }).eq("id", edit.id!))) { toast(t("st.placeHidden")); setEdit(null); }
+                return;
+              }
+              if (await after(Promise.resolve({ error }))) setEdit(null);
+            }}>{t("common.delete")}</Button>
+          ) : null}
         </Sheet>
       ) : null}
       <Sheet open={!!confirmRegen} onClose={() => setConfirmRegen(null)} title={t("st.regenQr")} footer={<Button variant="danger" onClick={async () => {

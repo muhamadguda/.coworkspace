@@ -30,7 +30,9 @@ export type OpType =
   | "booking_create"
   | "set_item_available"
   | "edit_item"
-  | "transfer_booker";
+  | "transfer_booker"
+  | "sell_bundle"
+  | "stock_adjust";
 
 export type Op = {
   id: string;
@@ -82,6 +84,11 @@ function newBill(id: string, customerId: string, placeId: string | null, session
     id, customer_id: customerId, place_id: placeId, session_id: sessionId, status: "open", opened_at: at, closed_at: null, business_day: null,
     room_fee_share: 0, items_total: null, subtotal: null, discount_kind: null, discount_value: null, discount_amount: 0, discount_reason: null, total: null, pay_later: 0,
   };
+}
+
+/** Mirrors bundle_void_for_item(): a bundle line removed from a bill takes the unused bundle with it. */
+function voidBundles(s: Snapshot, itemIds: string[]) {
+  return (s.customer_bundles ?? []).map((b) => (b.order_item_id && itemIds.includes(b.order_item_id) && !b.voided_at && b.minutes_used === 0 ? { ...b, voided_at: new Date().toISOString() } : b));
 }
 
 export function applyOp(s: Snapshot, op: Op): Snapshot {
@@ -172,6 +179,12 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
           const sh = shares.find((x) => x.bill_id === b.id);
           return sh ? { ...b, room_fee_share: round2(sh.amount) } : b;
         }),
+        ...(p.bundle && !(s.bundle_uses ?? []).some((u) => u.id === p.bundle.id)
+          ? {
+              customer_bundles: (s.customer_bundles ?? []).map((cb) => (cb.id === p.bundle.bundle_id ? { ...cb, minutes_used: Math.min(cb.minutes_total, cb.minutes_used + Number(p.bundle.minutes)) } : cb)),
+              bundle_uses: [...(s.bundle_uses ?? []), { id: p.bundle.id, bundle_id: p.bundle.bundle_id, session_id: sess.id, minutes: Number(p.bundle.minutes), amount: Number(p.bundle.amount), at }],
+            }
+          : {}),
       };
     }
     case "staff_order": {
@@ -198,7 +211,7 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
     case "serve_order":
       return { ...s, orders: s.orders.map((o) => (o.id === p.order_id && o.status === "accepted" ? { ...o, status: "served" as const, served_at: at } : o)) };
     case "cancel_order":
-      return { ...s, orders: s.orders.map((o) => (o.id === p.order_id && (o.status === "accepted" || o.status === "served") ? { ...o, status: "cancelled" as const, cancel_reason: p.reason } : o)) };
+      return { ...s, customer_bundles: voidBundles(s, s.order_items.filter((i) => i.order_id === p.order_id).map((i) => i.id)), orders: s.orders.map((o) => (o.id === p.order_id && (o.status === "accepted" || o.status === "served") ? { ...o, status: "cancelled" as const, cancel_reason: p.reason } : o)) };
     case "move_bill": {
       const sess = p.place_id ? s.sessions.find((x) => x.place_id === p.place_id && x.status === "active") : undefined;
       return { ...s, bills: patch(s.bills, p.bill_id, () => ({ place_id: p.place_id ?? null, session_id: sess?.id ?? null })) };
@@ -249,6 +262,7 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
       const q = Number(p.qty);
       return {
         ...s,
+        customer_bundles: q === 0 ? voidBundles(s, [p.item_id]) : s.customer_bundles,
         order_items: s.order_items.map((i) =>
           i.id !== p.item_id || i.voided_at ? i : q === 0 ? { ...i, voided_at: at, void_reason: p.reason } : { ...i, qty: q },
         ),
@@ -256,6 +270,40 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
     }
     case "transfer_booker":
       return { ...s, sessions: patch(s.sessions, p.session_id, () => ({ booker_customer_id: resolveCustomer(s, p.customer_id) })) };
+    case "sell_bundle": {
+      if ((s.customer_bundles ?? []).some((b) => b.id === p.id)) return s;
+      const plan = (s.bundle_plans ?? []).find((x) => x.id === p.plan_id);
+      if (!plan) return s;
+      const cid = resolveCustomer(s, p.customer_id);
+      let bills = s.bills;
+      let bill = openBillOf(s, cid);
+      if (!bill) {
+        bill = newBill(p.bill_id, cid, null, null, at);
+        bills = [...bills, bill];
+      }
+      const order: Order = { id: p.order_id, customer_id: cid, place_id: bill.place_id, bill_id: bill.id, source: "staff", status: "accepted", note: "", created_at: at, accepted_at: at, served_at: null, cancel_reason: null };
+      return {
+        ...s,
+        bills,
+        orders: [...s.orders, order],
+        order_items: [...s.order_items, { id: p.item_id, order_id: p.order_id, menu_item_id: null, name_ar: plan.name_ar, name_en: plan.name_en, unit_price: plan.price, qty: 1, options: [], note: "" }],
+        customer_bundles: [...(s.customer_bundles ?? []), {
+          id: p.id, customer_id: cid, plan_id: plan.id, name_ar: plan.name_ar, name_en: plan.name_en, mode_id: plan.mode_id, minutes_total: plan.hours * 60, minutes_used: 0,
+          price: plan.price, order_item_id: p.item_id, expires_at: new Date(Date.parse(at) + plan.valid_days * 86_400_000).toISOString(), voided_at: null, created_at: at,
+        }],
+      };
+    }
+    case "stock_adjust":
+      return {
+        ...s,
+        items: patch(s.items, p.menu_item_id, (m) => {
+          const cur = m.stock_qty ?? 0;
+          const q = Math.abs(Number(p.qty) || 0);
+          const next = round2(p.reason === "count" ? Number(p.qty) || 0 : p.reason === "waste" ? cur - q : cur + q);
+          const available = next <= 0 && m.available ? false : next > 0 && !m.available && m.stock_auto_off ? true : m.available;
+          return { stock_qty: next, available, stock_auto_off: available !== m.available ? next <= 0 : m.stock_auto_off };
+        }),
+      };
     case "set_item_available":
       return { ...s, items: patch(s.items, p.menu_item_id, () => ({ available: !!p.available })) };
     default:

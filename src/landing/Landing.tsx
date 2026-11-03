@@ -32,7 +32,7 @@ export function Landing() {
       location.replace(`/menu${location.search}`);
       return;
     }
-    rpc<Catalog>("public_catalog").then(setCatalog).catch(() => {});
+    rpc<Catalog>("public_catalog2").then(setCatalog).catch(() => {});
   }, []);
 
   return (
@@ -281,6 +281,18 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
               </li>
             ))}
           </ul>
+          {catalog?.bundle_plans?.length ? (
+            <div className="grid gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("bu.title")}</span>
+              <div className="flex flex-wrap gap-2">
+                {catalog.bundle_plans.map((b) => (
+                  <span key={b.id} className="px-3 py-2 rounded-[2px] border-2 text-sm font-semibold" style={{ borderColor: MUSTARD }}>
+                    {n(b)} · <span className="num">{money(b.price)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <a href="/menu?tab=book" className="justify-self-start h-14 px-7 inline-flex items-center rounded-full font-bold text-lg transition-transform hover:scale-[1.04]" style={{ background: MUSTARD, color: TEAL }}>
             {t("l.bookThis")}
           </a>

@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
-import type { Order } from "@/lib/types";
+import type { MenuItem, Order } from "@/lib/types";
+import { openWhatsApp } from "@/lib/phone";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Sheet, cx } from "@/components/ui";
-import { customerById, itemsOf, openBillOfCustomer, orderTotal, placeById } from "../derive";
+import { customerById, isLowStock, itemsOf, openBillOfCustomer, orderTotal, placeById } from "../derive";
+import { StockSheet } from "../components/StockSheet";
 import { dispatch, uuid } from "../store";
 import { useNow, useSnap } from "../hooks";
 
@@ -36,8 +38,26 @@ function Availability() {
   const snap = useSnap();
   const [open, setOpen] = useState(false);
   const soldOut = snap.items.filter((i) => i.active && !i.available);
+  const tracked = snap.items.filter((i) => i.active && i.track_stock).sort((a, b) => (a.stock_qty ?? 0) - (a.low_stock_at ?? 0) - ((b.stock_qty ?? 0) - (b.low_stock_at ?? 0)));
+  const low = tracked.filter(isLowStock);
+  const [stocking, setStocking] = useState<MenuItem | null>(null);
   return (
     <section className="grid gap-3">
+      {tracked.length ? (
+        <div className="grid gap-2">
+          <SectionTitle>{t("sk.adjust")} {low.length ? <Pill tone="warn">{t("sk.lowList")}: <span className="num">{low.length}</span></Pill> : null}</SectionTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {tracked.map((i) => (
+              <button key={i.id} type="button" onClick={() => setStocking(i)}
+                className={cx("h-10 px-3 inline-flex items-center gap-2 rounded-[2px] border-2 text-sm font-semibold", (i.stock_qty ?? 0) <= 0 ? "border-busy bg-busy-bg text-busy" : isLowStock(i) ? "border-warn" : "border-line bg-surface")}>
+                <span className="truncate max-w-40">{n(i)}</span>
+                <span className="num">{i.stock_qty ?? 0}</span>
+              </button>
+            ))}
+          </div>
+          {stocking ? <StockSheet item={stocking} onClose={() => setStocking(null)} /> : null}
+        </div>
+      ) : null}
       <SectionTitle action={<Button size="sm" onClick={() => setOpen((x) => !x)}>{open ? t("common.close") : t("common.edit")}</Button>}>
         {t("o.availability")} {soldOut.length ? <Pill tone="busy">{t("o.soldOutCount", { n: soldOut.length })}</Pill> : null}
       </SectionTitle>
@@ -119,7 +139,15 @@ function OrderCard({ order }: { order: Order }) {
               <Button size="md" variant="free" onClick={() => dispatch("accept_order", { order_id: order.id, bill_id: uuid() })}>{t("o.accept")}</Button>
             </>
           ) : (
-            <Button size="md" variant="free" onClick={() => dispatch("serve_order", { order_id: order.id })}>{t("o.serve")}</Button>
+            <>
+              {cust?.phone ? (
+                <Button size="sm" onClick={() => {
+                  const items = itemsOf(snap, order.id).filter((i) => !i.voided_at).map((i) => `${i.qty}× ${lang === "ar" ? i.name_ar : i.name_en}`).join("\n");
+                  openWhatsApp(cust.phone, t("wa.msgReady", { name: cust.name ? ` ${cust.name}` : "", items }));
+                }}>{t("wa.send")}</Button>
+              ) : null}
+              <Button size="md" variant="free" onClick={() => dispatch("serve_order", { order_id: order.id })}>{t("o.serve")}</Button>
+            </>
           )}
         </div>
       </div>

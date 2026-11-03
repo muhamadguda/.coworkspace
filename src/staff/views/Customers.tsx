@@ -6,8 +6,10 @@ import { errorCode, rpc } from "@/lib/supabase";
 import { round2 } from "@/lib/billing";
 import type { Customer, PayMethod } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Sheet, useToast } from "@/components/ui";
-import { openBillOfCustomer, placeById, searchCustomers } from "../derive";
-import { dispatch, refresh } from "../store";
+import { activeBundlesOf, fmtHours, openBillOfCustomer, placeById, searchCustomers } from "../derive";
+import { openWhatsApp } from "@/lib/phone";
+import { fmtDay } from "../receipts";
+import { dispatch, refresh, uuid } from "../store";
 import { useIsOwner, useOnline, useSnap } from "../hooks";
 
 export function CustomersView() {
@@ -52,7 +54,7 @@ function CustomerLine({ c, onOpen }: { c: Customer; onOpen: () => void }) {
 }
 
 function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
-  const { t, n, money } = useI18n();
+  const { t, n, money, lang } = useI18n();
   const errText = useErrorText();
   const toast = useToast();
   const snap = useSnap();
@@ -63,6 +65,8 @@ function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PayMethod>("cash");
   const openBill = openBillOfCustomer(snap, c.id);
+  const bundles = activeBundlesOf(snap, c.id);
+  const plans = (snap.bundle_plans ?? []).filter((x) => x.active !== false);
 
   async function saveLimit() {
     try {
@@ -107,8 +111,31 @@ function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
                 {t("cu.payDebt")}
               </Button>
             </div>
+            <Button size="sm" className="justify-self-start" onClick={() => openWhatsApp(c.phone, t("wa.msgDebt", { name: c.name ? ` ${c.name}` : "", amount: money(c.outstanding) }))}>{t("wa.reminder")}</Button>
           </div>
         ) : null}
+      </Card>
+
+      <Card className="p-3 grid gap-2">
+        <span className="font-semibold">{t("bu.title")}</span>
+        {bundles.map((b) => (
+          <div key={b.id} className="flex flex-wrap justify-between gap-2 text-sm">
+            <span>{n(b)} · <span className="text-muted">{t("bu.expires", { d: fmtDay(b.expires_at, lang) })}</span></span>
+            <span className="num font-bold">{t("bu.left", { h: fmtHours(b.minutes_total - b.minutes_used) })}</span>
+          </div>
+        ))}
+        {plans.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {plans.map((pl) => (
+              <Button key={pl.id} size="sm" variant="accent" onClick={() => {
+                dispatch("sell_bundle", { id: uuid(), plan_id: pl.id, customer_id: c.id, bill_id: openBill?.id ?? uuid(), order_id: uuid(), item_id: uuid() });
+                toast(t("bu.sold"));
+              }}>
+                {t("bu.sell")}: {n(pl)} · <span className="num">{money(pl.price)}</span>
+              </Button>
+            ))}
+          </div>
+        ) : <span className="text-sm text-muted">{t("bu.none")}</span>}
       </Card>
 
       {isOwner ? (

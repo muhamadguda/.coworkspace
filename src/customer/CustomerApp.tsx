@@ -21,7 +21,7 @@ export function CustomerApp() {
   const [place, setPlace] = useState<QrPlace | null>(null);
 
   const load = useCallback(() => {
-    rpc<Catalog>("public_catalog")
+    rpc<Catalog>("public_catalog2")
       .then((c) => {
         setCatalog(c);
         setLoadError(false);

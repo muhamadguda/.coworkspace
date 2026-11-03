@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { rateFor } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
+import { openWhatsApp } from "@/lib/phone";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Select, Sheet, Textarea } from "@/components/ui";
 import { customerById, placeById } from "../derive";
 import { dispatch, uuid } from "../store";
@@ -72,12 +73,14 @@ function BookingCard({ b }: { b: Booking }) {
           <>
             <Button size="sm" variant="free" onClick={() => dispatch("booking_decide", { booking_id: b.id, status: "confirmed" })}>{t("bk.confirm")}</Button>
             <Button size="sm" onClick={() => dispatch("booking_decide", { booking_id: b.id, status: "rejected" })}>{t("bk.reject")}</Button>
+            {c?.phone ? <Button size="sm" variant="ghost" onClick={() => openWhatsApp(c.phone, t("wa.msgReject", { name: c.name ? ` ${c.name}` : "", place: n(place), when: dateTime(b.starts_at) }))}>{t("wa.send")} · {t("bk.reject")}</Button> : null}
           </>
         ) : (
           <>
             <Button size="sm" variant="accent" disabled={busy} onClick={() => window.dispatchEvent(new CustomEvent("dot:start-session", { detail: { placeId: b.place_id, customerId: b.customer_id, bookingId: b.id } }))}>
               {t("bk.start")}
             </Button>
+            {c?.phone ? <Button size="sm" onClick={() => openWhatsApp(c.phone, t("wa.msgConfirm", { name: c.name ? ` ${c.name}` : "", place: n(place), when: dateTime(b.starts_at), dur: dur(b.duration_minutes) }))}>{t("wa.confirm")}</Button> : null}
             <Button size="sm" onClick={() => dispatch("booking_decide", { booking_id: b.id, status: "no_show" })}>{t("bk.noShow")}</Button>
             <Button size="sm" variant="ghost" onClick={() => dispatch("booking_decide", { booking_id: b.id, status: "cancelled" })}>{t("common.cancel")}</Button>
           </>

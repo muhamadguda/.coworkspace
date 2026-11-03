@@ -106,7 +106,30 @@ export function splitEqual(fee: number, billIds: string[]): { bill_id: string; a
   return billIds.map((id, i) => ({ bill_id: id, amount: (base + (i === 0 ? rem : 0)) / 100 }));
 }
 
-export type DiscountInput = { kind: "amount" | "percent" | null; value: number };
+/**
+ * Hour bundle against a room fee: covers billed minutes (segment by segment, then the
+ * minimum/rounding minutes at the last mode) up to the balance. A bundle tied to a mode
+ * only covers minutes in that mode. Returns the minutes used and their value.
+ */
+export function bundleCredit(fee: Pick<RoomFee, "lines" | "extraMinutes" | "extraRate" | "fee">, balanceMinutes: number, modeId: string | null) {
+  let left = Math.max(0, balanceMinutes);
+  let minutes = 0;
+  let amount = 0;
+  const parts = [...fee.lines.map((l) => ({ mode_id: l.mode_id, minutes: l.minutes, rate: l.rate }))];
+  if (fee.extraMinutes > 0 && fee.lines.length) parts.push({ mode_id: fee.lines[fee.lines.length - 1].mode_id, minutes: fee.extraMinutes, rate: fee.extraRate });
+  for (const p of parts) {
+    if (left <= 0) break;
+    if (modeId && p.mode_id !== modeId) continue;
+    const take = Math.min(left, p.minutes);
+    left -= take;
+    minutes += take;
+    amount += (take * p.rate) / 60;
+  }
+  minutes = Math.round(minutes * 100) / 100;
+  return { minutes, amount: Math.min(round2(amount), fee.fee) };
+}
+
+export type DiscountInput ={ kind: "amount" | "percent" | null; value: number };
 
 /** Mirrors the server's checkout math exactly. */
 export function billTotals(itemsTotal: number, roomFeeShare: number, discount: DiscountInput) {
