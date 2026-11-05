@@ -1,0 +1,62 @@
+name: Nightly database backup
+
+# Every night at 03:23 Cairo time (01:23 UTC): an encrypted pg_dump of each database,
+# kept as a workflow artifact for 30 days. See docs/BACKUPS.md for setup and restore.
+on:
+  schedule:
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: dot
+            secret: DOT_DB_URL
+          - name: horusrepair
+            secret: HORUS_DB_URL
+    env:
+      DB_URL: ${{ secrets[matrix.secret] }}
+      PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check secrets
+        id: check
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$PASSPHRASE" ]; then
+            echo "::warning::${{ matrix.secret }} or BACKUP_PASSPHRASE is not set; skipping ${{ matrix.name }}."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install pg_dump 17
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump and encrypt
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%dT%H%MZ)
+          file="${{ matrix.name }}-$stamp.dump"
+          # App data (public), staff/customer logins (auth) and file metadata (storage).
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" -Fc --no-owner --no-privileges \
+            --schema=public --schema=auth --schema=storage -f "$file"
+          ls -lh "$file"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:PASSPHRASE -in "$file" -out "$file.enc"
+          rm "$file"
+          echo "FILE=$file.enc" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          name: ${{ matrix.name }}-backup
+          path: ${{ env.FILE }}
+          retention-days: 30
+          if-no-files-found: error

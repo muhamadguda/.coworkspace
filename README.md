@@ -63,11 +63,32 @@ npm test                     # billing math (node --test)
 npm run lint && npm run typecheck
 ```
 
-Database changes go in a new file under `supabase/migrations/`. Apply it with the Supabase CLI (`supabase db push`) or the dashboard SQL editor.
+Database changes go in a new file under `supabase/migrations/`. Keep them additive: wrap existing functions in a new version (`staff_op3`, `staff_snapshot2`, `public_catalog2`, `customer_bill2`) instead of renaming or dropping them, so the app that's live keeps working during a deploy.
+
+### Tests and CI
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+1. **check:** lint, types, unit tests (billing math), and a production build.
+2. **e2e:**
+   - Starts a local Supabase with every migration and `seed.sql`, and creates a test owner.
+   - Runs `e2e/db.sql`, which checks the business rules in SQL: bundles, stock, visit rewards, reopening a bill, idempotent ops, and that anonymous callers are refused.
+   - Runs the Playwright browser tests in `e2e/*.spec.ts`: landing page and share image, QR ordering through to the bill, a room session through to a paid bill, offline work that syncs, and stock alerts.
+
+To run the browser tests locally (needs Docker): `supabase start`, create the owner as the workflow does, then `npm run build && npm start` and `npx playwright test`.
+
+## Branches and deploys
+
+- `main` is production: a push to `main` deploys to dotcowork.space. Set this in Vercel → Settings → Environments → Production → Branch Tracking.
+- Work branches get preview deploys and the same CI.
+
+## Backups
+
+The nightly encrypted `pg_dump` of dot and HorusRepair is in `.github/workflows/backup.yml`. See [docs/BACKUPS.md](docs/BACKUPS.md) for the three secrets to add and how to restore.
 
 ## Background jobs and push
 
-- `vercel.json` runs `/api/keepalive` every 3 days (Vercel Cron). It adds and removes a row in `public.keepalive`, so the free Supabase project never hits the 7-day inactivity pause. Every 3 days leaves room for one missed run.
+- `vercel.json` runs `/api/keepalive` every 3 days (Vercel Cron). It adds a row to `public.keepalive` (insert-only, about 120 tiny rows a year), so the free Supabase project never hits the 7-day inactivity pause. Every 3 days leaves room for one missed run.
 - Push notifications: database triggers (orders, bookings, room sessions) build messages and post them through `pg_net` to `/api/push`, which signs them with the VAPID key and delivers. Browser errors and rejected counter syncs go to `/api/errors`. They are stored in `public.app_errors` and pushed to owner devices.
 - Vercel env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `PUSH_SECRET` (also stored in `public.app_secrets`), `CRON_SECRET`.
 
