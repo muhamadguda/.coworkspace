@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { roomTile, signIn, sql } from "./helpers";
+import { openStart, roomTile, signIn, sql } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -7,8 +7,7 @@ test("room session from start to paid bill", async ({ page }) => {
   await signIn(page);
   const phone = "011" + String(Date.now()).slice(-8);
 
-  await roomTile(page, "Room 2").click();
-  const start = page.getByRole("dialog");
+  const start = await openStart(page, "Room 2");
   await start.locator("#customer-search").fill(phone);
   await start.getByRole("button", { name: "Add customer" }).click();
   await expect(start.getByText(phone)).toBeVisible();
@@ -42,8 +41,7 @@ test("work continues offline and syncs when back online", async ({ page, context
   await context.setOffline(true);
   await expect(page.getByText("Offline", { exact: false }).first()).toBeVisible({ timeout: 20_000 });
 
-  await roomTile(page, "Room 3").click();
-  const start = page.getByRole("dialog");
+  const start = await openStart(page, "Room 3");
   await start.locator("#customer-search").fill(phone);
   await start.getByRole("button", { name: "Add customer" }).click();
   await start.getByRole("button", { name: "Start session" }).click();

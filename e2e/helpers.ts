@@ -32,4 +32,16 @@ export async function signIn(page: Page) {
   await expect(page.getByRole("button", { name: "Board", exact: true })).toBeVisible();
 }
 
+/** Opens a free room and waits for the start-session sheet (retries the tap once if the board re-rendered). */
+export async function openStart(page: Page, room: string) {
+  const search = page.getByRole("dialog").locator("#customer-search");
+  for (let i = 0; i < 3; i++) {
+    await roomTile(page, room).click();
+    if (await search.isVisible({ timeout: 5_000 }).catch(() => false)) return page.getByRole("dialog");
+    await page.keyboard.press("Escape");
+  }
+  await expect(search).toBeVisible();
+  return page.getByRole("dialog");
+}
+
 export const roomTile = (page: Page, name: string) => page.getByRole("button").filter({ hasText: name }).filter({ hasText: /Free|In use|bills/ }).first();
