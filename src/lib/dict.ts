@@ -634,6 +634,20 @@ export const dict = {
   "td.lowStock": ["قرب يخلص", "Running low"],
   "td.noneLow": ["المخزون تمام", "Stock is fine"],
   "td.nothing": ["لسه مفيش", "Nothing yet"],
+  // install as an app
+  "pwa.title": ["نزّل تطبيق dot", "Get the dot app"],
+  "pwa.lead": ["حط dot على شاشتك الرئيسية وافتحه بلمسة، من غير متصفح.", "Put dot on your home screen and open it in one tap, no browser needed."],
+  "pwa.why1": ["اطلب واشوف زيارتك أسرع", "Order and see your visit faster"],
+  "pwa.why2": ["تنبيه لما طلبك يجهز أو حجزك يتأكد", "Get a ping when your order is ready or your booking is confirmed"],
+  "pwa.why3": ["بيفتح حتى لو النت ضعيف", "Opens even on a weak connection"],
+  "pwa.install": ["نزّل", "Install"],
+  "pwa.later": ["مش دلوقتي", "Not now"],
+  "pwa.gotIt": ["تمام", "Got it"],
+  "pwa.ios1": ["دوس زرار المشاركة تحت", "Tap the Share button below"],
+  "pwa.ios2": ["اختار «إضافة إلى الشاشة الرئيسية»", "Choose “Add to Home Screen”"],
+  "pwa.iosShort": ["مشاركة ← إضافة إلى الشاشة الرئيسية", "Share → Add to Home Screen"],
+  "pwa.bannerTitle": ["dot كتطبيق", "dot as an app"],
+  "pwa.bannerBody": ["أسرع، وبيبلغك لما طلبك يجهز", "Faster, and it tells you when your order is ready"],
 } as const satisfies Record<string, readonly [string, string]>;
 
 export type DictKey = keyof typeof dict;

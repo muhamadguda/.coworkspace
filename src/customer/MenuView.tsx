@@ -85,7 +85,7 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
       ))}
 
       {cartCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-strong bg-bg" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-strong bg-bg" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <div className="mx-auto max-w-3xl flex items-center justify-between gap-3 py-3" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
             <div className="grid">
               <span className="text-sm text-muted">{t("c.cartCount", { n: cartCount })}</span>

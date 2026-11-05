@@ -59,7 +59,7 @@ function ReLogin({ pending }: { pending: number }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
-    <div className="fixed bottom-4 inset-x-4 z-40 flex justify-center">
+    <div data-bottom-bar className="fixed bottom-4 inset-x-4 z-40 flex justify-center">
       <div className="bg-warn-bg border-2 border-warn rounded-[2px] px-4 py-3 flex flex-wrap items-center gap-3 max-w-xl">
         <span className="font-semibold">{t("s.signInToSync", { n: pending })}</span>
         <Button size="sm" variant="primary" onClick={() => setOpen(true)}>{t("s.login.submit")}</Button>

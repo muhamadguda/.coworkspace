@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { I18nProvider } from "@/lib/i18n";
 import { ToastProvider } from "./ui";
 import { reportError } from "@/lib/report";
+import { InstallPrompt } from "./InstallPrompt";
 
 export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -26,7 +27,10 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
   return (
     <I18nProvider>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        {children}
+        <InstallPrompt />
+      </ToastProvider>
     </I18nProvider>
   );
 }
