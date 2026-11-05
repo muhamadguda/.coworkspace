@@ -9,7 +9,7 @@ import { useIsOwner, useOnline } from "../hooks";
 import { customerById, openBills, placeById } from "../derive";
 import { useSnap } from "../hooks";
 import { BillCard } from "../components/BillCard";
-import { printBill, whatsappBill } from "../receipts";
+import { printBill, whatsappBill, whatsappReview } from "../receipts";
 
 export function BillsView() {
   const { t, n, money, time, lang } = useI18n();
@@ -64,6 +64,7 @@ export function BillsView() {
                     <span className="num font-bold">{money(b.total)}</span>
                     <Button size="sm" onClick={() => printBill(snap, b, lang, t)}>{t("bl.reprint")}</Button>
                     <Button size="sm" onClick={() => whatsappBill(snap, b, lang, t)}>{t("wa.send")}</Button>
+                    {snap.settings.google_review_url ? <Button size="sm" variant="ghost" onClick={() => whatsappReview(snap, b.customer_id, t)}>{t("wa.askReview")}</Button> : null}
                     {isOwner ? <Button size="sm" disabled={!online} onClick={() => { setReason(""); setReopening(b.id); }}>{t("bl.reopen")}</Button> : null}
                   </div>
                 </div>

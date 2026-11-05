@@ -69,15 +69,19 @@ export function Diorama({ input, className }: { input: React.RefObject<DioramaIn
     const el = host.current;
     if (!el) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Quality tiers: 2 = full, 1 = lighter shadows and pixels, 0 = no shadows, 1x pixels, 30 fps.
+    // Weak devices start lower; the governor below steps down further if frames run slow.
+    const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    const cores = nav.hardwareConcurrency ?? 8;
+    const mem = nav.deviceMemory ?? 8;
+    let tier = nav.connection?.saveData || cores <= 2 || mem <= 2 ? 0 : cores <= 4 || mem <= 4 ? 1 : 2;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ antialias: tier === 2, powerPreference: tier === 0 ? "default" : "high-performance" });
     } catch {
       return; // no WebGL: the page still reads fine without the model
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
@@ -185,6 +189,26 @@ export function Diorama({ input, className }: { input: React.RefObject<DioramaIn
     const hemi = new THREE.HemisphereLight(0xffffff, 0x0f2a29, 1);
     scene.add(hemi);
 
+    const applyTier = () => {
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, tier === 2 ? 2 : tier === 1 ? 1.5 : 1));
+      renderer.shadowMap.enabled = tier > 0;
+      renderer.shadowMap.type = tier === 2 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+      const size = tier === 2 ? 2048 : 1024;
+      if (dir.shadow.mapSize.x !== size) {
+        dir.shadow.mapSize.set(size, size);
+        dir.shadow.map?.dispose();
+        (dir.shadow as { map: THREE.WebGLRenderTarget | null }).map = null;
+      }
+      rooms.forEach((rm) => (rm.light.visible = tier > 0));
+      scene.traverse((o) => {
+        const mat = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((m) => (m.needsUpdate = true));
+      });
+      if (el.clientWidth) renderer.setSize(el.clientWidth, el.clientHeight, false);
+      (window as unknown as { __dotDiorama?: object }).__dotDiorama = { tier };
+    };
+    applyTier();
+
     // --- size
     const resize = () => {
       const w = el.clientWidth, h = el.clientHeight;
@@ -241,10 +265,24 @@ export function Diorama({ input, className }: { input: React.RefObject<DioramaIn
     io.observe(el);
     let raf = 0;
     const clock = new THREE.Clock();
+    let last = 0, frames = 0, windowStart = performance.now();
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      if (!visible) return;
+      if (!visible || document.hidden) return;
       const now = performance.now();
+      if (tier === 0 && now - last < 30) return; // ~30 fps on the lowest tier
+      last = now;
+      // Governor: every 1.5 s, if the average frame took longer than ~28 ms (under ~35 fps), step down a tier.
+      frames++;
+      if (now - windowStart > 1500) {
+        const avg = (now - windowStart) / frames;
+        if (avg > 28 && tier > 0) {
+          tier--;
+          applyTier();
+        }
+        frames = 0;
+        windowStart = performance.now();
+      }
       const time = clock.getElapsedTime();
       const { progress: p, busy } = input.current ?? { progress: 0, busy: [] };
       const s = sample(p);

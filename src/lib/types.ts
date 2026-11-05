@@ -18,6 +18,9 @@ export type Settings = {
   booking_warning_minutes: number;
   staff_discount_max_percent: number;
   staff_discount_max_amount: number;
+  google_review_url?: string;
+  loyalty_every?: number;
+  loyalty_reward_minutes?: number;
   updated_at?: string;
 };
 
@@ -73,6 +76,7 @@ export type CustomerBundle = {
   expires_at: string;
   voided_at: string | null;
   created_at: string;
+  source?: "purchase" | "loyalty";
 };
 export type BundleUse = { id: string; bundle_id: string; session_id: string; minutes: number; amount: number; at: string };
 export type StockMove = { id: number; menu_item_id: string; delta: number; qty_after: number; reason: string; note: string; at: string; by: string | null };
@@ -230,6 +234,7 @@ export type Snapshot = {
   customer_bundles?: CustomerBundle[];
   bundle_uses?: BundleUse[];
   stock_moves?: StockMove[];
+  visits?: Record<string, number>;
 };
 
 export type Catalog = {
@@ -241,6 +246,8 @@ export type Catalog = {
   schedule: { place_id: string; starts_at: string; duration_minutes: number }[];
   mode_prices?: ModePrice[];
   bundle_plans?: BundlePlan[];
+  review_url?: string;
+  loyalty?: { every: number; reward_minutes: number };
 };
 
 // What a cart line sends to the server

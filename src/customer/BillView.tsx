@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
-import { computeRoomFee, round2, type FeeSettings } from "@/lib/billing";
+import { bundleCredit, computeRoomFee, round2, type FeeSettings } from "@/lib/billing";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import type { ChosenOption, OrderStatus } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle } from "@/components/ui";
@@ -25,6 +25,9 @@ type BillData = {
     };
   };
   bookings: { id: string; status: "pending" | "confirmed"; starts_at: string; duration_minutes: number; place_ar: string; place_en: string; mode_ar: string; mode_en: string }[];
+  bundles?: { name_ar: string; name_en: string; minutes_left: number; expires_at: string; mode_id: string | null; source: "purchase" | "loyalty" }[];
+  loyalty?: { visits: number; every: number; reward_minutes: number };
+  review_url?: string;
 };
 
 export function BillView() {
@@ -40,7 +43,7 @@ export function BillView() {
   const load = useCallback(async (p: string, c: string, quiet = false) => {
     if (!quiet) setBusy(true);
     try {
-      const res = await rpc<BillData>("customer_bill", { p_phone: normalizePhone(p), p_code: c.trim() });
+      const res = await rpc<BillData>("customer_bill2", { p_phone: normalizePhone(p), p_code: c.trim() });
       setData(res);
       setError(null);
       const prev = getIdentity();
@@ -55,7 +58,7 @@ export function BillView() {
   useEffect(() => {
     const me = getIdentity();
     if (me.phone && me.code) {
-      rpc<BillData>("customer_bill", { p_phone: me.phone, p_code: me.code })
+      rpc<BillData>("customer_bill2", { p_phone: me.phone, p_code: me.code })
         .then(setData)
         .catch(() => {});
     }
@@ -63,7 +66,9 @@ export function BillView() {
 
   useEffect(() => {
     if (!data) return;
-    const tick = setInterval(() => setNow(new Date()), 15_000);
+    // Tick every second while a room is running (the meter), otherwise every 15 s.
+    const live = data.bill?.session?.status === "active";
+    const tick = setInterval(() => setNow(new Date()), live ? 1000 : 15_000);
     const poll = setInterval(() => void load(data.customer.phone, data.customer.code, true), 30_000);
     return () => {
       clearInterval(tick);
@@ -109,7 +114,10 @@ export function BillView() {
   const fee = s && s.status === "active" && s.is_booker
     ? computeRoomFee({ segments: s.segments, kind: s.kind, plannedEnd: s.planned_end, end: now, settings: data.settings, chargeOverstay: false })
     : null;
-  const roomAmount = s ? (s.status === "active" ? (s.is_booker ? fee!.fee : 0) : b!.room_fee_share) : b?.room_fee_share ?? 0;
+  const bundle = s && s.is_booker ? (data.bundles ?? []).find((x) => !x.mode_id || s.segments.some((g) => g.mode_id === x.mode_id)) : undefined;
+  const credit = fee && bundle ? bundleCredit(fee, bundle.minutes_left, bundle.mode_id) : null;
+  const liveFee = fee ? round2(fee.fee - (credit?.amount ?? 0)) : 0;
+  const roomAmount = s ? (s.status === "active" ? (s.is_booker ? liveFee : 0) : b!.room_fee_share) : b?.room_fee_share ?? 0;
   const total = round2(itemsTotal + roomAmount);
 
   return (
@@ -148,11 +156,8 @@ export function BillView() {
                 </div>
               ))}
               {s.status === "active" && !s.is_booker ? <p className="text-sm text-muted">{t("c.roomOnBooker")}</p> : null}
-              {fee ? (
-                <div className="flex justify-between gap-2 font-semibold">
-                  <span>{t("c.roomTimeEstimate")}</span>
-                  <span className="num">{money(fee.fee)}</span>
-                </div>
+              {fee && s.status === "active" ? (
+                <Meter startedAt={s.started_at} now={now} fee={liveFee} billedMinutes={fee.billedMinutes} settings={data.settings} covered={credit && credit.minutes > 0 ? credit.minutes : 0} />
               ) : s.status === "ended" ? (
                 <div className="flex justify-between gap-2 font-semibold">
                   <span>{t("c.roomTime")}</span>
@@ -189,6 +194,33 @@ export function BillView() {
         </Card>
       )}
 
+      {(data.bundles ?? []).length ? (
+        <Card className="p-4 grid gap-2">
+          <span className="font-semibold">{t("c.myTime")}</span>
+          {data.bundles!.map((x, i) => (
+            <div key={i} className="flex justify-between gap-2 text-sm">
+              <span>{lang === "ar" ? x.name_ar : x.name_en}{x.source === "loyalty" ? <> <Pill tone="accent">{t("ly.reward")}</Pill></> : null}</span>
+              <span className="num font-semibold">{dur(Math.round(x.minutes_left))}</span>
+            </div>
+          ))}
+        </Card>
+      ) : null}
+
+      {data.loyalty && data.loyalty.every > 0 ? (
+        <Card className="p-4 grid gap-2">
+          <div className="flex justify-between gap-2 font-semibold">
+            <span>{t("ly.visits")}</span>
+            <span className="num">{data.loyalty.visits}</span>
+          </div>
+          <div className="flex gap-1" aria-hidden>
+            {Array.from({ length: data.loyalty.every }).map((_, i) => (
+              <span key={i} className={`h-2.5 flex-1 rounded-full ${i < data.loyalty!.visits % data.loyalty!.every ? "bg-accent" : "bg-line"}`} />
+            ))}
+          </div>
+          <span className="text-sm text-muted">{t("ly.nextIn", { n: data.loyalty.every - (data.loyalty.visits % data.loyalty.every), m: data.loyalty.reward_minutes })}</span>
+        </Card>
+      ) : null}
+
       {data.outstanding > 0 ? (
         <Card className="p-4 flex justify-between gap-2 border-warn">
           <span className="font-semibold">{t("c.outstanding")}</span>
@@ -214,6 +246,38 @@ export function BillView() {
         </section>
       ) : null}
       {error ? <p className="text-busy font-semibold text-sm">{error}</p> : null}
+      {data.review_url ? (
+        <a href={data.review_url} target="_blank" rel="noreferrer" className="justify-self-center text-sm font-semibold underline underline-offset-4">★ {t("c.reviewUs")}</a>
+      ) : null}
+    </div>
+  );
+}
+
+/** Live room meter: running clock, current price, and when the next billing step lands. */
+function Meter({ startedAt, now, fee, billedMinutes, settings, covered }: { startedAt: string; now: Date; fee: number; billedMinutes: number; settings: FeeSettings; covered: number }) {
+  const { t, money, time, dur } = useI18n();
+  const elapsedMs = Math.max(0, now.getTime() - Date.parse(startedAt));
+  const sec = Math.floor(elapsedMs / 1000);
+  const clock = `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+  const step = Math.max(1, settings.billing_step_minutes);
+  const nextAt = new Date(Date.parse(startedAt) + billedMinutes * 60_000);
+  const windowStart = Math.max(0, billedMinutes - (billedMinutes <= settings.min_session_minutes ? settings.min_session_minutes : step));
+  const span = Math.max(1, billedMinutes - windowStart);
+  const progress = Math.min(1, Math.max(0, (elapsedMs / 60_000 - windowStart) / span));
+  return (
+    <div className="grid gap-2" aria-live="off">
+      <div className="flex items-end justify-between gap-3">
+        <span className="num font-display text-4xl font-bold tracking-tight tabular-nums" dir="ltr">{clock}</span>
+        <span key={fee} className="num text-2xl font-bold meter-tick">{money(fee)}</span>
+      </div>
+      <div className="h-2 rounded-full bg-line overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+        <div className="h-full bg-accent transition-[width] duration-1000 ease-linear" style={{ width: `${progress * 100}%` }} />
+      </div>
+      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted">
+        <span>{t("c.meterNext", { at: time(nextAt.toISOString()) })}</span>
+        {billedMinutes <= settings.min_session_minutes ? <span>{t("c.meterMin", { t: dur(settings.min_session_minutes) })}</span> : null}
+        {covered > 0 ? <span className="text-strong font-semibold">{t("c.coveredByBundle", { t: dur(Math.round(covered)) })}</span> : null}
+      </div>
     </div>
   );
 }

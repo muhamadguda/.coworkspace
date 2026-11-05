@@ -48,6 +48,7 @@ function GeneralSettingsKeyed() {
 
 function GeneralSettings() {
   const { t } = useI18n();
+  const toast = useToast();
   const snap = useSnap();
   const online = useOnline();
   const after = useAfterSave();
@@ -63,8 +64,17 @@ function GeneralSettings() {
       receipt_footer_ar: v.receipt_footer_ar.trim(), receipt_footer_en: v.receipt_footer_en.trim(),
       min_session_minutes: Number(v.min_session_minutes) || 0, billing_step_minutes: Math.max(1, Number(v.billing_step_minutes) || 1),
       grace_minutes: Number(v.grace_minutes) || 0, day_rollover_hour: Number(v.day_rollover_hour) || 0, booking_warning_minutes: Number(v.booking_warning_minutes) || 0,
-      staff_discount_max_percent: Number(v.staff_discount_max_percent) || 0, staff_discount_max_amount: Number(v.staff_discount_max_amount) || 0, updated_at: new Date().toISOString(),
+      staff_discount_max_percent: Number(v.staff_discount_max_percent) || 0, staff_discount_max_amount: Number(v.staff_discount_max_amount) || 0,
+      google_review_url: (v.google_review_url ?? "").trim(),
+      loyalty_every: Math.min(100, Math.max(0, Math.round(Number(v.loyalty_every) || 0))),
+      loyalty_reward_minutes: Math.min(1440, Math.max(0, Math.round(Number(v.loyalty_reward_minutes) || 0))),
+      updated_at: new Date().toISOString(),
     };
+    if (row.google_review_url && !/^https:\/\/\S+$/.test(row.google_review_url)) {
+      toast(t("st.reviewUrlBad"), "error");
+      setBusy(false);
+      return;
+    }
     await after(supabase().from("settings").update(row).eq("id", 1));
     setBusy(false);
   }
@@ -92,6 +102,12 @@ function GeneralSettings() {
         <legend className="font-semibold mb-2">{t("st.discountCaps")}</legend>
         <Field label={t("st.maxPercent")}><Input id="st-pct" numeric {...num("staff_discount_max_percent")} /></Field>
         <Field label={t("st.maxAmount")}><Input id="st-amt" numeric {...num("staff_discount_max_amount")} /></Field>
+      </fieldset>
+      <fieldset className="grid gap-3 sm:grid-cols-3">
+        <legend className="font-semibold mb-2">{t("st.growth")}</legend>
+        <Field label={t("st.reviewUrl")} hint={t("st.reviewUrlHint")} className="sm:col-span-3"><Input id="st-review" type="url" dir="ltr" placeholder="https://g.page/r/…/review" {...txt("google_review_url")} /></Field>
+        <Field label={t("st.loyaltyEvery")} hint={t("st.loyaltyEveryHint")}><Input id="st-loy-every" numeric {...num("loyalty_every")} /></Field>
+        <Field label={t("st.loyaltyMinutes")}><Input id="st-loy-min" numeric {...num("loyalty_reward_minutes")} /></Field>
       </fieldset>
     </Card>
   );

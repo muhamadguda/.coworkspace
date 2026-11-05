@@ -34,8 +34,17 @@ export function whatsappBill(snap: Snapshot, bill: Bill, lang: Lang, t: T) {
   const b = activeBundlesOf(snap, bill.customer_id)[0];
   if (b) out.push("", t("wa.msgBundle", { h: fmtHours(b.minutes_total - b.minutes_used), d: fmtDay(b.expires_at, lang) }));
   out.push("", t("wa.thanks"));
+  if (snap.settings.google_review_url) out.push(t("wa.reviewLine", { url: snap.settings.google_review_url }));
   if (d.venue.footer) out.push(d.venue.footer);
   openWhatsApp(cust.phone, out.join("\n"));
+}
+
+/** Asks the customer for a Google review on WhatsApp. */
+export function whatsappReview(snap: Snapshot, customerId: string, t: T) {
+  const cust = customerById(snap, customerId);
+  const url = snap.settings.google_review_url;
+  if (!cust || !url) return;
+  openWhatsApp(cust.phone, t("wa.msgReview", { name: cust.name ? ` ${cust.name}` : "", url }));
 }
 
 export const fmtDay = (iso: string, lang: Lang) =>

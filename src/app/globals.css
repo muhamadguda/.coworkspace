@@ -173,3 +173,8 @@ input[type="number"] { -moz-appearance: textfield; }
     radial-gradient(circle at 100% 100%, color-mix(in srgb, #eaf0ea 30%, transparent) 0 22%, transparent 22.5%),
     #173a39;
 }
+
+/* Customer room meter: the price pops a little when it steps up. */
+@keyframes meter-tick { from { transform: translateY(-4px); opacity: .4; } to { transform: none; opacity: 1; } }
+.meter-tick { animation: meter-tick .5s ease-out; display: inline-block; }
+@media (prefers-reduced-motion: reduce) { .meter-tick { animation: none; } }

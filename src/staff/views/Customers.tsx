@@ -66,6 +66,8 @@ function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
   const [method, setMethod] = useState<PayMethod>("cash");
   const openBill = openBillOfCustomer(snap, c.id);
   const bundles = activeBundlesOf(snap, c.id);
+  const visits = snap.visits?.[c.id] ?? 0;
+  const loyaltyEvery = snap.settings.loyalty_every ?? 0;
   const plans = (snap.bundle_plans ?? []).filter((x) => x.active !== false);
 
   async function saveLimit() {
@@ -115,6 +117,21 @@ function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
           </div>
         ) : null}
       </Card>
+
+      {loyaltyEvery > 0 ? (
+        <Card className="p-3 grid gap-2">
+          <div className="flex justify-between gap-2 font-semibold">
+            <span>{t("ly.visits")}</span>
+            <span className="num">{visits}</span>
+          </div>
+          <div className="flex gap-1" aria-hidden>
+            {Array.from({ length: loyaltyEvery }).map((_, i) => (
+              <span key={i} className={`h-2.5 flex-1 rounded-full ${i < visits % loyaltyEvery ? "bg-accent" : "bg-line"}`} />
+            ))}
+          </div>
+          <span className="text-sm text-muted">{t("ly.nextIn", { n: loyaltyEvery - (visits % loyaltyEvery), m: snap.settings.loyalty_reward_minutes ?? 60 })}</span>
+        </Card>
+      ) : null}
 
       <Card className="p-3 grid gap-2">
         <span className="font-semibold">{t("bu.title")}</span>

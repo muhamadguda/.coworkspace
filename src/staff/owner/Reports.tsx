@@ -6,6 +6,7 @@ import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { businessDay, round2 } from "@/lib/billing";
 import { Button, Card, Empty, Field, Input, SectionTitle, Segmented, Spinner, cx } from "@/components/ui";
 import { useSnap } from "../hooks";
+import { TodayCard } from "./TodayCard";
 
 type Report = {
   from: string; to: string;
@@ -133,6 +134,7 @@ export function Reports() {
 
   return (
     <div className="grid gap-5">
+      <TodayCard />
       <SectionTitle>{t("rp.title")}</SectionTitle>
       <div className="flex flex-wrap items-end gap-3">
         <Segmented value={range} onChange={pickRange} options={[
