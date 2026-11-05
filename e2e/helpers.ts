@@ -6,7 +6,7 @@ const DB = process.env.E2E_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:5
 
 /** Runs SQL on the local test database and returns the first column of the first row. */
 export function sql(query: string): string {
-  return execFileSync("psql", [DB, "-tAX", "-v", "ON_ERROR_STOP=1", "-c", query], { encoding: "utf8" }).trim();
+  return execFileSync("psql", [DB, "-qtAX", "-v", "ON_ERROR_STOP=1", "-c", query], { encoding: "utf8" }).trim();
 }
 
 export async function english(page: Page) {
@@ -15,6 +15,8 @@ export async function english(page: Page) {
 
 /** Signs in as the test owner and gets past the start-of-day / start-shift gate. */
 export async function signIn(page: Page) {
+  page.on("pageerror", (e) => console.log("pageerror:", e.message));
+  page.on("console", (m) => m.type() === "error" && console.log("console error:", m.text().slice(0, 300)));
   await english(page);
   await page.goto("/staff");
   await page.fill("#login-phone", OWNER.phone);
@@ -40,6 +42,8 @@ export async function openStart(page: Page, room: string) {
     if (await search.isVisible({ timeout: 5_000 }).catch(() => false)) return page.getByRole("dialog");
     await page.keyboard.press("Escape");
   }
+  // Still not there: print what the screen shows so the CI log explains it.
+  console.log("openStart failed. Dialogs:", await page.getByRole("dialog").count(), "\nScreen:\n", (await page.locator("body").innerText()).slice(0, 1500));
   await expect(search).toBeVisible();
   return page.getByRole("dialog");
 }
