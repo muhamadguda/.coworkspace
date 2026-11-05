@@ -1,0 +1,82 @@
+name: CI
+
+# Every push and pull request: lint, types, unit tests, build.
+# Then a full local Supabase (all migrations + seed) with database rule tests and browser tests.
+on:
+  push:
+    branches: [main, "ccr-*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Start Supabase (applies every migration and the seed)
+        run: supabase start -x studio,imgproxy,mailpit,logflare,vector,edge-runtime,supavisor,postgres-meta
+      - name: Point the app at the local stack
+        run: |
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${PUBLISHABLE_KEY:-$ANON_KEY}" >> "$GITHUB_ENV"
+      - name: Create the test owner
+        run: |
+          psql "$E2E_DB_URL" -v ON_ERROR_STOP=1 -c "
+            do \$\$ declare uid uuid; begin
+              uid := public.create_auth_user('01000000001', 'e2e-pass-123');
+              insert into public.staff_profiles (user_id, phone, name, role) values (uid, '01000000001', 'E2E Owner', 'owner');
+              update public.app_setup set claimed_at = now() where id = 1;
+            end \$\$;"
+      - name: Database rule tests
+        run: psql "$E2E_DB_URL" -v ON_ERROR_STOP=1 -f e2e/db.sql
+
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Browser tests
+        run: |
+          npx next start -p 3000 &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:3000/robots.txt && break; sleep 1; done
+          npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
