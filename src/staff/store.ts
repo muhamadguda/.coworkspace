@@ -76,6 +76,12 @@ let channel: RealtimeChannel | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let heartbeat: ReturnType<typeof setInterval> | null = null;
+// Live updates (Supabase Realtime) tell the counter when something changed, so the full
+// snapshot is only reloaded then. The heartbeat is a safety net: every 5 minutes while
+// live updates are connected, every 30 seconds while they are not. Reloading every 30 s
+// regardless was ~75 MB a day per open counter, enough to outgrow the free plan's egress.
+let realtimeLive = false;
+const SAFETY_RELOAD_MS = 5 * 60_000;
 
 /** Called after a successful sign-in: resume syncing queued work. */
 export function resumeAfterSignIn() {
@@ -108,7 +114,10 @@ export async function startStore(userId: string) {
   set({ loaded: true, online: navigator.onLine }, false);
   window.addEventListener("online", onOnline);
   window.addEventListener("offline", () => set({ online: false }, false));
-  heartbeat = setInterval(() => void refresh(), 30_000);
+  heartbeat = setInterval(() => {
+    if (!realtimeLive || Date.now() - (state.lastSyncAt ?? 0) > SAFETY_RELOAD_MS) void refresh();
+  }, 30_000);
+  document.addEventListener("visibilitychange", onVisible);
   subscribeRealtime();
   await flush();
   await refresh();
@@ -117,6 +126,7 @@ export async function startStore(userId: string) {
 export async function stopStore() {
   started = false;
   window.removeEventListener("online", onOnline);
+  document.removeEventListener("visibilitychange", onVisible);
   if (heartbeat) clearInterval(heartbeat);
   if (channel) await supabase().removeChannel(channel);
   channel = null;
@@ -128,6 +138,11 @@ export async function clearLocal() {
   listeners.forEach((l) => l());
 }
 
+/** Coming back to the tab after a while: catch up at once instead of waiting for the heartbeat. */
+function onVisible() {
+  if (document.visibilityState === "visible" && Date.now() - (state.lastSyncAt ?? 0) > 60_000) scheduleRefresh(200);
+}
+
 function onOnline() {
   set({ online: true }, false);
   void flush().then(refresh);
@@ -136,10 +151,16 @@ function onOnline() {
 function subscribeRealtime() {
   const sb = supabase();
   channel = sb.channel("staff-feed");
-  for (const table of ["orders", "bookings", "bills", "room_sessions", "menu_items", "payments"]) {
-    channel.on("postgres_changes", { event: "*", schema: "public", table }, () => scheduleRefresh(600));
+  for (const table of ["orders", "order_items", "bookings", "bills", "room_sessions", "session_segments", "menu_items", "payments", "customers", "cash_days", "cash_outs", "customer_bundles"]) {
+    // 1.5 s debounce: one counter action touches several tables (order + items + bill).
+    channel.on("postgres_changes", { event: "*", schema: "public", table }, () => scheduleRefresh(1500));
   }
-  channel.subscribe();
+  channel.subscribe((status) => {
+    const wasLive = realtimeLive;
+    realtimeLive = status === "SUBSCRIBED";
+    // Reconnected after a gap: changes may have been missed while it was down.
+    if (realtimeLive && !wasLive) scheduleRefresh(500);
+  });
 }
 
 export function scheduleRefresh(ms = 400) {

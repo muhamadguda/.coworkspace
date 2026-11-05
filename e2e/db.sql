@@ -70,7 +70,16 @@ begin
   -- Anonymous callers cannot touch stock or staff ops.
   perform set_config('role', 'anon', true);
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
-  perform stock_apply(item, -100, 'hack', null);
+  begin
+    perform stock_apply(item, -100, 'hack', null);
+    ok := false;
+  exception when insufficient_privilege then ok := true; end;
+  assert ok, 'anon cannot call stock_apply at all';
+  begin
+    perform push_send('[{"endpoint":"https://example.com","title":"x"}]'::jsonb);
+    ok := false;
+  exception when insufficient_privilege then ok := true; end;
+  assert ok, 'anon cannot send pushes';
   begin
     perform staff_op3(jsonb_build_object('id', gen_random_uuid(), 'type', 'open_day', 'payload', '{}'::jsonb));
     ok := false;
