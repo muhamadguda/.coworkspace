@@ -94,15 +94,20 @@ export function Shell() {
             <UserMenu />
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
+        {/* Big, labelled buttons with icons; they wrap instead of hiding off-screen, and the open one is filled. */}
+        <nav aria-label="Sections" className="flex flex-wrap gap-2 pb-3 pt-1" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
           {tabs.map((x) => (
             <button
               key={x.id}
               type="button"
               onClick={() => goto(x.id)}
               aria-current={active === x.id ? "page" : undefined}
-              className={cx("h-11 px-3 shrink-0 text-[15px] font-semibold border-b-4 -mb-[2px] inline-flex items-center gap-2", active === x.id ? "border-accent" : "border-transparent text-muted hover:text-ink")}
+              className={cx(
+                "h-12 ps-3 pe-4 rounded-[6px] border-2 text-[15px] font-bold inline-flex items-center gap-2 transition-colors",
+                active === x.id ? "bg-strong text-bg border-strong shadow-[0_3px_0_0_var(--color-accent)]" : "bg-surface border-line text-ink hover:border-strong",
+              )}
             >
+              <TabIcon id={x.id} />
               {x.label}
               {x.badge ? <span className="num min-w-6 h-6 px-1.5 grid place-items-center rounded-full bg-busy text-white text-xs">{x.badge}</span> : null}
             </button>
@@ -317,5 +322,27 @@ function UserMenu() {
         </div>
       </Sheet>
     </>
+  );
+}
+
+/** Simple line icons so each section is recognisable at a glance. */
+function TabIcon({ id }: { id: Tab }) {
+  const d: Record<Tab, string> = {
+    board: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+    orders: "M5 8h12v5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 3v2M11 3v2M14 3v2",
+    bills: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3",
+    bookings: "M4 6h16v14H4zM4 10h16M8 3v5M16 3v5",
+    customers: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a6 6 0 0 1 3.5 6",
+    day: "M3 7h18v10H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 10v4M18 10v4",
+    menu: "M5 5h14M5 10h14M5 15h14M5 20h9",
+    settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1L15 3.5h-4L10.6 6a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
+    team: "M4 5h16v14H4zM9 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5.5 17a3.5 3.5 0 0 1 7 0M14 9h4M14 13h3",
+    reports: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+    guide: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01",
+  };
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d[id]} />
+    </svg>
   );
 }

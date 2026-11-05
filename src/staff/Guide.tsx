@@ -27,34 +27,34 @@ const STAFF: Section[] = [
     steps: [
       { ar: "من «الأوض والترابيزات»: الأخضر فاضي والأحمر مشغول.", en: "In “Board”: green is free, red is in use." },
       { ar: "دوس على أوضة فاضية ← «ابدأ وقت». اختار صاحب الحجز برقم الموبايل، والنوع (مذاكرة، بلايستيشن…)، ومفتوح ولا مدة محددة.", en: "Tap a free room → “Start session”. Pick the booker by phone number, the mode (study, PlayStation…), and open-ended or fixed time." },
-      { ar: "لو جالهم حد: «ضيف شخص». كل واحد ليه حساب، والأوضة على صاحب الحجز إلا لو قسمتوها.", en: "Someone joins: “Add person”. Everyone gets their own bill; the room goes on the booker unless you split it." },
+      { ar: "لو جالهم حد: «ضيف شخص». كل واحد ليه زيارة لوحده، والأوضة على صاحب الحجز إلا لو قسمتوها.", en: "Someone joins: “Add person”. Everyone gets their own bill; the room goes on the booker unless you split it." },
       { ar: "غيروا النشاط (مثلاً من مذاكرة لبلايستيشن)؟ «غيّر النوع». كل جزء بيتحسب بسعره.", en: "They switch activity (say study → PlayStation)? “Change mode”. Each part is billed at its own price." },
       { ar: "في الآخر: «اقفل واحسب». لو فيه وقت زيادة بعد السماح، تقدر تحسبه أو تسامح فيه. اختار مين يدفع الأوضة.", en: "At the end: “End and calculate”. If they stayed past the grace time you can charge it or let it go. Choose who pays the room." },
       { ar: "لو صاحب الحجز عنده باقة ساعات أو مكافأة، بتتخصم لوحدها من سعر الأوضة (تقدر تقفلها).", en: "If the booker has an hour bundle or a reward, it comes off the room price automatically (you can switch it off)." },
     ],
-    tip: { ar: "حد ماشي بدري والأوضة لسه شغالة؟ من حسابه «ماشي دلوقتي · يدفع حسابه». صاحب الحجز ماشي؟ «انقل الحجز لحد تاني».", en: "Someone leaves early while the room runs? On their bill: “Leaving now · pay own items”. The booker leaves? “Hand over the booking”." },
+    tip: { ar: "حد ماشي بدري والأوضة لسه شغالة؟ من زيارته «ماشي دلوقتي · يدفع اللي عليه». صاحب الحجز ماشي؟ «انقل الحجز لحد تاني».", en: "Someone leaves early while the room runs? On their bill: “Leaving now · pay own items”. The booker leaves? “Hand over the booking”." },
   },
   {
     id: "orders",
     title: { ar: "الطلبات", en: "Orders" },
     steps: [
       { ar: "العملاء بيطلبوا من الكود اللي على الترابيزة. الطلب بيظهر في «الطلبات» مع صوت.", en: "Customers order from the QR code on their table. The order shows in “Orders” with a sound." },
-      { ar: "«أكد» يضيفه على حسابهم، أو «ارفض» مع السبب. لما يتقدم دوس «اتقدم».", en: "“Accept” adds it to their bill, or “Reject” with a reason. When it's delivered tap “Served”." },
+      { ar: "«أكد» يضيفه على زيارتهم، أو «ارفض» مع السبب. لما يتقدم دوس «اتقدم».", en: "“Accept” adds it to their bill, or “Reject” with a reason. When it's delivered tap “Served”." },
       { ar: "«واتساب» على الطلب بيبعت للعميل إن طلبه جاهز.", en: "“WhatsApp” on an order tells the customer it's ready." },
-      { ar: "عايز تطلب لحد بنفسك؟ من حسابه «ضيف طلب».", en: "Taking an order yourself? On their bill: “Add items”." },
+      { ar: "عايز تطلب لحد بنفسك؟ من زيارته «ضيف طلب».", en: "Taking an order yourself? On their bill: “Add items”." },
       { ar: "صنف خلص؟ من «المتاح في المنيو» دوس عليه يبقى «خلص». الحاجات اللي ليها مخزون بتتقفل لوحدها لما توصل صفر.", en: "Out of something? In “Menu availability” tap it to mark it sold out. Items with tracked stock switch off by themselves at zero." },
       { ar: "وصل مخزون جديد؟ دوس على الصنف في قسم «المخزون» ← «وصل جديد» أو «جرد» أو «هالك».", en: "New stock arrived? Tap the item under “Stock” → “Restock”, “Count” or “Waste”." },
     ],
   },
   {
     id: "checkout",
-    title: { ar: "الحساب والدفع", en: "Checkout and payment" },
+    title: { ar: "الدفع وقفل الزيارة", en: "Checkout and payment" },
     steps: [
-      { ar: "من «الحسابات» أو من على الأوضة: «الحساب». قفل الأوضة الأول لو كانت شغالة.", en: "From “Bills” or the room: “Checkout”. End the room first if it's still running." },
+      { ar: "من «الزيارات» أو من على الأوضة: «ادفع واقفل». قفل الأوضة الأول لو كانت شغالة.", en: "From “Bills” or the room: “Checkout”. End the room first if it's still running." },
       { ar: "قسّم الدفع براحتك: كاش، إنستاباي، فودافون كاش، أو آجل (لحد حد الآجل بتاع العميل).", en: "Split the payment any way: Cash, InstaPay, Vodafone Cash, or Pay later (up to the customer's limit)." },
       { ar: "خصم؟ اكتب المبلغ أو النسبة والسبب. لو أكبر من المسموح، صاحب المكان يكتب رقمه والباسورد.", en: "Discount? Enter the amount or percent and a reason. Above your limit, the owner types their phone and password." },
       { ar: "شغّل «اطبع الإيصال» أو «ابعت الفاتورة واتساب» قبل ما تقفل.", en: "Turn on “Print receipt” or “Send receipt on WhatsApp” before closing." },
-      { ar: "صنف غلط على الحساب؟ دوس «تعديل صنف» قبل الدفع، وغيّر العدد أو «شيل الصنف» مع السبب.", en: "Wrong item on a bill? Tap “Edit item” before paying, change the quantity or “Remove item” with a reason." },
+      { ar: "صنف غلط على الزيارة؟ دوس «تعديل صنف» قبل الدفع، وغيّر العدد أو «شيل الصنف» مع السبب.", en: "Wrong item on a bill? Tap “Edit item” before paying, change the quantity or “Remove item” with a reason." },
     ],
   },
   {
@@ -73,8 +73,8 @@ const STAFF: Section[] = [
     steps: [
       { ar: "دوّر بالموبايل أو الاسم أو الكود. القايمة بتوريك اللي عليهم فلوس.", en: "Search by phone, name or code. The list shows who owes money." },
       { ar: "حد بيسدد آجل؟ افتحه، اختار طريقة الدفع، واكتب المبلغ ← «سدّد». «فكّره بالباقي» بيبعتله واتساب.", en: "Someone paying their tab? Open them, pick the method, type the amount → “Pay off”. “Send a reminder” messages them on WhatsApp." },
-      { ar: "بيع باقة ساعات: من العميل «بيع باقة». بتتضاف على حسابه وبتدفع معاه.", en: "Selling an hour bundle: on the customer, “Sell bundle”. It's added to their bill and paid with it." },
-      { ar: "العميل بيشوف حسابه ورصيد ساعاته وزياراته من «حسابي» على الموبايل برقمه والكود.", en: "Customers see their bill, prepaid time and visits under “My bill” on their phone, with their number and code." },
+      { ar: "بيع باقة ساعات: من العميل «بيع باقة». بتتضاف على زيارته وبتتدفع معاها.", en: "Selling an hour bundle: on the customer, “Sell bundle”. It's added to their bill and paid with it." },
+      { ar: "العميل بيشوف زيارته ورصيد ساعاته وعدد زياراته من «زيارتي» على الموبايل برقمه والكود.", en: "Customers see their bill, prepaid time and visits under “My bill” on their phone, with their number and code." },
     ],
   },
   {
@@ -82,7 +82,7 @@ const STAFF: Section[] = [
     title: { ar: "آخر اليوم", en: "End of day" },
     steps: [
       { ar: "سحبت فلوس من الدرج (مشتريات مثلاً)؟ «سحب من الدرج» مع السبب.", en: "Took cash out (for supplies, say)? “Take cash out” with a reason." },
-      { ar: "اقفل كل الأوض والحسابات المفتوحة.", en: "End all rooms and close all open bills." },
+      { ar: "اقفل كل الأوض والزيارات المفتوحة.", en: "End all rooms and close all open bills." },
       { ar: "من «الدرج»: عِد الكاش واكتبه ← «اقفل اليوم». هتشوف الفرق لو فيه.", en: "In “Cash drawer”: count the cash, type it → “Close the day”. Any difference is shown." },
       { ar: "اطبع تقرير اليوم لو محتاجه.", en: "Print the day report if you need it." },
     ],
@@ -95,9 +95,9 @@ const OWNER: Section[] = [
     title: { ar: "التجهيز أول مرة", en: "First-time setup" },
     steps: [
       { ar: "«الإعدادات»: اسم المكان والعنوان وواتساب، وكلام آخر الإيصال.", en: "“Settings”: venue name, address, WhatsApp and the receipt footer." },
-      { ar: "قواعد الحساب: أقل مدة، الحساب بيزيد كل كام دقيقة، والسماح بعد المدة المحددة، وساعة بداية اليوم الجديد.", en: "Billing rules: minimum time, the step the bill rounds up to, grace after a fixed time, and the hour a new business day starts." },
+      { ar: "حساب الوقت: أقل مدة، السعر بيزيد كل كام دقيقة، والسماح بعد المدة المحددة، وساعة بداية اليوم الجديد.", en: "Billing rules: minimum time, the step the bill rounds up to, grace after a fixed time, and the hour a new business day starts." },
       { ar: "«أنواع الاستخدام والأسعار» للسعر العادي، و«أسعار كل أوضة» لو أوضة ليها سعر مختلف.", en: "“Modes & hourly prices” for the normal price, and “Prices per room” where a room costs differently." },
-      { ar: "«الأوض والترابيزات»: ضيف وسمّي وامسح. اللي ليه حسابات قديمة بيتخبى بدل ما يتمسح.", en: "“Rooms & tables”: add, rename, delete. Anything with past bills is hidden instead of deleted." },
+      { ar: "«الأوض والترابيزات»: ضيف وسمّي وامسح. اللي ليه زيارات قديمة بيتخبى بدل ما يتمسح.", en: "“Rooms & tables”: add, rename, delete. Anything with past bills is hidden instead of deleted." },
       { ar: "«اطبع كل الأكواد» واحطها على الترابيزات والأوض.", en: "“Print all QR codes” and put them on the tables and rooms." },
     ],
   },
@@ -131,9 +131,9 @@ const OWNER: Section[] = [
     id: "o-reports",
     title: { ar: "التقارير", en: "Reports" },
     steps: [
-      { ar: "«التقارير» فوق خالص: «النهارده لحد دلوقتي» (المحصّل، الحسابات المفتوحة، أكتر أوضة وصنف، اللي قرب يخلص).", en: "Top of “Reports”: “Today so far” (collected, open bills, busiest room and item, what's running low)." },
+      { ar: "«التقارير» فوق خالص: «النهارده لحد دلوقتي» (المحصّل، الزيارات المفتوحة، أكتر أوضة وصنف، اللي قرب يخلص).", en: "Top of “Reports”: “Today so far” (collected, open bills, busiest room and item, what's running low)." },
       { ar: "تحتها: أي فترة، فلوس بطريقة الدفع، الأوض، أكتر الأصناف، الخصومات، الآجل، الدرج، والإلغاءات. «تصدير CSV» يفتح في إكسل.", en: "Below: any date range, money by method, rooms, top items, discounts, pay-later, drawer and cancellations. “Export CSV” opens in Excel." },
-      { ar: "حساب اتقفل غلط؟ من «الحسابات» ← «افتح الحساب تاني» مع السبب. الدفع القديم بيتلغي ويفضل متسجل.", en: "A bill closed by mistake? In “Bills” → “Reopen bill” with a reason. The old payment is voided and stays on record." },
+      { ar: "زيارة اتقفلت غلط؟ من «الزيارات» ← «افتح الزيارة تاني» مع السبب. الدفع القديم بيتلغي ويفضل متسجل.", en: "A bill closed by mistake? In “Bills” → “Reopen bill” with a reason. The old payment is voided and stays on record." },
     ],
   },
 ];
