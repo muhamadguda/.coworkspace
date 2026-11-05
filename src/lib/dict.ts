@@ -263,6 +263,7 @@ export const dict = {
   "s.nav.settings": ["الإعدادات", "Settings"],
   "s.nav.team": ["الموظفين", "Team"],
   "s.nav.reports": ["التقارير", "Reports"],
+  "s.nav.guide": ["الدليل", "Guide"],
   "s.businessDay": ["يوم {day}", "Day {day}"],
 
   // alerts

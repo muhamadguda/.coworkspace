@@ -21,8 +21,9 @@ import { MenuAdmin } from "./owner/MenuAdmin";
 import { SettingsAdmin } from "./owner/SettingsAdmin";
 import { TeamAdmin } from "./owner/TeamAdmin";
 import { Reports } from "./owner/Reports";
+import { Guide } from "./Guide";
 
-type Tab = "board" | "orders" | "bills" | "bookings" | "customers" | "day" | "menu" | "settings" | "team" | "reports";
+type Tab = "board" | "orders" | "bills" | "bookings" | "customers" | "day" | "menu" | "settings" | "team" | "reports" | "guide";
 const OWNER_TABS: Tab[] = ["menu", "settings", "team", "reports"];
 
 export function Shell() {
@@ -75,12 +76,13 @@ export function Shell() {
           { id: "reports", label: t("s.nav.reports") },
         ] as { id: Tab; label: string }[])
       : []),
+    { id: "guide", label: t("s.nav.guide") },
   ];
   const active = !isOwner && OWNER_TABS.includes(tab) ? "board" : tab;
 
   return (
     <div className="min-h-dvh flex flex-col">
-      <header className="tile-stripe sticky top-0 z-30 bg-bg border-b-2 border-line" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="tile-stripe sticky top-0 z-30 bg-bg border-b-2 border-line print:hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="flex items-center justify-between gap-3 py-2" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
           <div className="flex items-center gap-3 min-w-0">
             <Logo className="h-7" />
@@ -121,6 +123,7 @@ export function Shell() {
         {active === "settings" && <SettingsAdmin />}
         {active === "team" && <TeamAdmin />}
         {active === "reports" && <Reports />}
+        {active === "guide" && <Guide />}
       </main>
     </div>
   );
