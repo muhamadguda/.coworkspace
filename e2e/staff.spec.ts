@@ -5,7 +5,7 @@ test.describe.configure({ mode: "serial" });
 
 test("room session from start to paid bill", async ({ page }) => {
   await signIn(page);
-  const phone = "01011112222";
+  const phone = "011" + String(Date.now()).slice(-8);
 
   await roomTile(page, "Room 2").click();
   const start = page.getByRole("dialog");
@@ -38,7 +38,7 @@ test("room session from start to paid bill", async ({ page }) => {
 
 test("work continues offline and syncs when back online", async ({ page, context }) => {
   await signIn(page);
-  const phone = "01033334444";
+  const phone = "012" + String(Date.now()).slice(-8);
   await context.setOffline(true);
   await expect(page.getByText("Offline", { exact: false }).first()).toBeVisible({ timeout: 20_000 });
 
@@ -55,11 +55,12 @@ test("work continues offline and syncs when back online", async ({ page, context
 });
 
 test("a sale lowers stock, sells the item out at zero, and the owner sees it", async ({ page }) => {
+  const walkIn = "015" + String(Date.now()).slice(-8);
   const id = sql(`update menu_items set track_stock = true, stock_qty = 1, low_stock_at = 1 where name_en = 'Espresso' returning id`);
   const owner = sql(`select user_id from staff_profiles where phone = '01000000001'`);
   const asOwner = `select set_config('request.jwt.claims', json_build_object('sub', '${owner}', 'role', 'authenticated')::text, false);`;
-  sql(`${asOwner} select public.staff_op3('{"id":"${crypto.randomUUID()}","type":"ensure_customer","payload":{"id":"${crypto.randomUUID()}","phone":"01055556666"}}'::jsonb);`);
-  const cust = sql(`select id from customers where phone = '01055556666'`);
+  sql(`${asOwner} select public.staff_op3('{"id":"${crypto.randomUUID()}","type":"ensure_customer","payload":{"id":"${crypto.randomUUID()}","phone":"${walkIn}"}}'::jsonb);`);
+  const cust = sql(`select id from customers where phone = '${walkIn}'`);
   const bill = crypto.randomUUID();
   sql(`${asOwner} select public.staff_op3('{"id":"${crypto.randomUUID()}","type":"open_bill","payload":{"id":"${bill}","customer_id":"${cust}"}}'::jsonb);`);
   sql(`${asOwner} select public.staff_op3('{"id":"${crypto.randomUUID()}","type":"staff_order","payload":{"bill_id":"${bill}","order_id":"${crypto.randomUUID()}","items":[{"id":"${crypto.randomUUID()}","menu_item_id":"${id}","qty":1,"options":[]}]}}'::jsonb);`);

@@ -14,7 +14,7 @@ test("landing page, sitemap, robots and share image", async ({ page, request }) 
 
 test("QR order reaches the counter, gets accepted, and lands on the bill", async ({ browser }) => {
   const token = sql(`select qr_token from places where name_en = 'Table 1'`);
-  const phone = "01077778888";
+  const phone = "010" + String(Date.now()).slice(-8);
 
   const customer = await browser.newPage();
   await english(customer);
@@ -26,7 +26,7 @@ test("QR order reaches the counter, gets accepted, and lands on the bill", async
   await customer.locator("#order-phone").fill(phone);
   await customer.getByRole("button", { name: /Send order/ }).click();
   await expect(customer.getByText("Your order reached the counter")).toBeVisible();
-  expect(sql(`select count(*) from orders o join customers c on c.id = o.customer_id where c.phone = '${phone}' and o.status = 'new'`)).toBe("1");
+  await expect.poll(() => sql(`select count(*) from orders o join customers c on c.id = o.customer_id where c.phone = '${phone}' and o.status = 'new'`)).toBe("1");
 
   const staff = await browser.newPage();
   await signIn(staff);
@@ -38,11 +38,8 @@ test("QR order reaches the counter, gets accepted, and lands on the bill", async
 
   // The customer's bill page shows it, using their code.
   const code = sql(`select code from customers where phone = '${phone}'`);
+  // Their phone and code were saved when they ordered, so the bill loads by itself.
+  expect(code).toMatch(/^\d{4,6}$/);
   await customer.goto("/menu?tab=bill");
-  if (await customer.locator("#bill-phone").isVisible().catch(() => false)) {
-    await customer.locator("#bill-phone").fill(phone);
-    await customer.locator("#bill-code").fill(code);
-    await customer.getByRole("button", { name: /Show/ }).click();
-  }
-  await expect(customer.getByText("60 EGP").first()).toBeVisible();
+  await expect(customer.getByText("60 EGP").first()).toBeVisible({ timeout: 20_000 });
 });

@@ -146,9 +146,10 @@ function RoomPanel({ room, onClose }: { room: Place; onClose: () => void }) {
   const { t, n } = useI18n();
   const snap = useSnap();
   const sess = activeSessionAt(snap, room.id);
-  const [starting, setStarting] = useState(!sess);
-  const [ending, setEnding] = useState(false);
   const endedBills = snap.bills.filter((b) => b.place_id === room.id && b.status === "open" && (!b.session_id || snap.sessions.find((s) => s.id === b.session_id)?.status === "ended"));
+  // Unpaid bills from a finished session come first; "Start session" opens on top only when asked.
+  const [starting, setStarting] = useState(!sess && !endedBills.length);
+  const [ending, setEnding] = useState(false);
 
   if (!sess) {
     if (endedBills.length) {
