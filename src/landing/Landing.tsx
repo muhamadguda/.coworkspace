@@ -436,7 +436,10 @@ function Call() {
         </div>
         <div className="mt-16 pt-6 border-t flex flex-wrap items-center justify-between gap-3 text-sm opacity-70" style={{ borderColor: `${SAGE}22`, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <span className="flex items-center gap-3"><Logo light className="h-6" /> dotcowork.space</span>
-          <a href="/staff" className="underline">{t("l.staff")}</a>
+          <span className="flex gap-4">
+            <a href="/events" className="underline">{t("ev.title")}</a>
+            <a href="/staff" className="underline">{t("l.staff")}</a>
+          </span>
         </div>
       </div>
     </section>

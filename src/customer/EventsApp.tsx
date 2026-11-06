@@ -8,6 +8,7 @@ import { isValidPhone, normalizePhone } from "@/lib/phone";
 import type { PublicEvent } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, LangSwitch, Logo, Pill, Sheet, Textarea, Toggle, useToast } from "@/components/ui";
 import { getIdentity, setIdentity } from "./local";
+import { EventsNotify } from "@/components/EventsNotify";
 
 const SIGNED = "dot.events.signed";
 const readSigned = (): Record<string, number> => {
@@ -56,6 +57,7 @@ export function EventsApp() {
       </header>
       <main className="flex-1 mx-auto w-full max-w-3xl py-6 grid gap-4 content-start" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))", paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))" }}>
         <p className="text-muted">{t("ev.lead")}</p>
+        <EventsNotify />
         {failed && !events ? (
           <div className="grid gap-3 place-items-center py-16 text-center">
             <p className="text-muted">{t("err.network")}</p>

@@ -126,6 +126,7 @@ export function CustomerApp() {
       <footer className="border-t-2 border-line">
         <div className="mx-auto max-w-3xl py-5 text-sm text-muted flex flex-wrap gap-x-6 gap-y-1 justify-between" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))", paddingBottom: "max(20px, env(safe-area-inset-bottom, 0px))" }}>
           <span>{catalog?.settings.venue_address || t("app.tagline")}</span>
+          <Link href="/events" className="underline font-semibold">{t("ev.title")}</Link>
           {catalog?.settings.venue_whatsapp ? (
             <a className="num underline" href={`https://wa.me/${catalog.settings.venue_whatsapp.replace(/\D/g, "").replace(/^0/, "20")}`} target="_blank" rel="noreferrer">
               {t("c.footer.whatsapp")} {catalog.settings.venue_whatsapp}

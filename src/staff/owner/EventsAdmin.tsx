@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
-import { errorCode, supabase } from "@/lib/supabase";
+import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { cairoInstant } from "@/lib/billing";
 import { dotQrSvg } from "@/lib/dotqr";
 import { downloadCsv, intlPhone } from "@/lib/csv";
@@ -25,6 +25,7 @@ type EventRow = {
   capacity: number | null;
   image_url: string;
   active: boolean;
+  announced_at?: string | null;
 };
 type Signup = { id: string; event_id: string; seats: number; note: string; status: "going" | "cancelled" | "attended"; created_at: string; customers: { name: string; phone: string } | null };
 
@@ -49,6 +50,7 @@ export function EventsAdmin() {
   const [signups, setSignups] = useState<Signup[]>([]);
   const [edit, setEdit] = useState<Partial<EventRow> | null>(null);
   const [viewing, setViewing] = useState<EventRow | null>(null);
+  const [announcing, setAnnouncing] = useState<EventRow | null>(null);
 
   const load = useCallback(() => {
     const sb = supabase();
@@ -74,6 +76,7 @@ export function EventsAdmin() {
   const now = useNow(60_000).getTime();
   const upcoming = (events ?? []).filter((e) => Date.parse(e.ends_at ?? e.starts_at) + 3 * 3600_000 > now).reverse();
   const past = (events ?? []).filter((e) => !upcoming.includes(e));
+  const upcomingIds = new Set(upcoming.map((e) => e.id));
   const taken = (id: string) => signups.filter((s) => s.event_id === id && s.status !== "cancelled").reduce((a, s) => a + s.seats, 0);
 
   const row = (e: EventRow) => (
@@ -86,6 +89,11 @@ export function EventsAdmin() {
         <Pill tone={e.capacity != null && taken(e.id) >= e.capacity ? "busy" : "accent"}>
           <span className="num">{taken(e.id)}{e.capacity != null ? ` / ${e.capacity}` : ""}</span> {t("ev.seatsShort")}
         </Pill>
+        {upcomingIds.has(e.id) && e.active ? (
+          e.announced_at && now - Date.parse(e.announced_at) < 12 * 3600_000
+            ? <Pill tone="free">{t("ev.announced")}</Pill>
+            : <Button size="sm" variant="accent" disabled={!online} onClick={() => setAnnouncing(e)}>{t("ev.announce")}</Button>
+        ) : null}
         <Button size="sm" onClick={() => setViewing(e)}>{t("ev.signups")}</Button>
         <Button size="sm" disabled={!online} onClick={() => setEdit({ ...e })}>{t("common.edit")}</Button>
       </span>
@@ -109,8 +117,42 @@ export function EventsAdmin() {
         </Card>
       ) : null}
       {edit ? <EventEditor edit={edit} setEdit={setEdit} onSaved={() => { setEdit(null); void load(); }} /> : null}
+      {announcing ? <AnnounceSheet e={announcing} onClose={() => setAnnouncing(null)} onDone={() => { setAnnouncing(null); void load(); }} /> : null}
       {viewing ? <SignupsSheet e={viewing} list={signups.filter((s) => s.event_id === viewing.id)} onClose={() => setViewing(null)} onChanged={load} /> : null}
     </div>
+  );
+}
+
+/** Push the event to everyone who tapped "Tell me about new events". */
+function AnnounceSheet({ e, onClose, onDone }: { e: EventRow; onClose: () => void; onDone: () => void }) {
+  const { t, n, dateTime } = useI18n();
+  const toast = useToast();
+  const errText = useErrorText();
+  const [audience, setAudience] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    rpc<number>("owner_event_audience").then(setAudience).catch(() => setAudience(0));
+  }, []);
+  async function send() {
+    setBusy(true);
+    try {
+      const r = await rpc<{ sent: number }>("owner_announce_event", { p_event: e.id });
+      toast(t("ev.announceSent", { n: r.sent }));
+      onDone();
+    } catch (err) {
+      toast(errText(errorCode(err)), "error");
+      setBusy(false);
+    }
+  }
+  return (
+    <Sheet open onClose={onClose} title={t("ev.announce")} footer={<Button variant="accent" size="lg" busy={busy} disabled={audience === 0} onClick={send}>{t("ev.announceSend")}</Button>}>
+      <Card className="p-3 grid gap-1">
+        <span className="font-semibold">{n({ name_ar: e.title_ar, name_en: e.title_en })}</span>
+        <span className="text-sm text-muted">{dateTime(e.starts_at)}</span>
+      </Card>
+      <p className="text-sm">{audience == null ? t("common.loading") : audience === 0 ? t("ev.announceNobody") : t("ev.announceAudience", { n: audience })}</p>
+      <p className="text-xs text-muted">{t("ev.announceHint")}</p>
+    </Sheet>
   );
 }
 

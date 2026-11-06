@@ -21,6 +21,13 @@ export function NotifyButton({ kind, refId, label, className }: { kind: "order" 
       const sub = await getPushSubscription();
       if (!sub) return setState(Notification.permission === "denied" ? "blocked" : "idle");
       await rpc("customer_push_watch", { p_sub: sub, p_kind: kind, p_ref: refId, p_lang: lang });
+      // Notifications allowed: new-event announcements come along, unless they stopped them on /events.
+      try {
+        if (localStorage.getItem("dot.events.notify") !== "0") {
+          await rpc("customer_events_watch", { p_sub: sub, p_lang: lang, p_on: true });
+          localStorage.setItem("dot.events.notify", "1");
+        }
+      } catch {}
       setState("on");
     } catch {
       setState("idle");

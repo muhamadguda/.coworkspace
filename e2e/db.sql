@@ -112,6 +112,15 @@ begin
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'set_offers', 'payload', jsonb_build_object('customer_id', (select id from customers where phone = '01099990003'), 'on', false)));
   assert not (select offers_opt_in from customers where phone = '01099990003'), 'counter can opt a customer out';
   assert exists (select 1 from jsonb_array_elements(public_catalog2()->'events') x where x->>'id' = ev::text), 'event on the public catalog';
+  perform customer_events_watch('{"endpoint":"https://push.example.com/e2e","keys":{"p256dh":"k","auth":"a"}}'::jsonb, 'en', true);
+  assert owner_event_audience() >= 1, 'event followers counted';
+  r := owner_announce_event(ev);
+  assert (r->>'sent')::int >= 1, 'announcement sent to followers';
+  begin
+    perform owner_announce_event(ev);
+    ok := false;
+  exception when others then ok := sqlerrm = 'already_announced'; end;
+  assert ok, 'no double announcement';
 
   -- Anonymous callers cannot touch stock or staff ops.
   perform set_config('role', 'anon', true);
