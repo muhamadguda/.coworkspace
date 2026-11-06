@@ -81,6 +81,12 @@ begin
   update places set capacity = 2 where id = area;
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
   assert (select count(*) from room_sessions where place_id = area and status = 'active') = 2, 'two people, two timers, one area';
+  update places set capacity = 5 where id = area;
+  begin
+    perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+    ok := false;
+  exception when unique_violation then ok := true; end;
+  assert ok, 'one person cannot run two timers in the same area';
 
   -- Call staff from a table QR: one ring per reason until handled.
   select qr_token into tok from places where kind = 'table' and active limit 1;
