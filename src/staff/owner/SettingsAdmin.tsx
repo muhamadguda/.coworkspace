@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { dotQrSvg } from "@/lib/dotqr";
+import { placeCard, printQrCards, wifiCard, type QrCard } from "@/lib/qrPrint";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, rpc, supabase } from "@/lib/supabase";
-import { printHtml } from "@/lib/print";
 import type { BundlePlan, HappyHour, Mode, Place, Settings } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, SectionTitle, Select, Sheet, Toggle, cx, useToast } from "@/components/ui";
 import { refresh } from "../store";
@@ -17,6 +16,7 @@ export function SettingsAdmin() {
     <div className="grid gap-6">
       {!online ? <p className="text-busy font-semibold">{t("m.onlineOnly")}</p> : null}
       <GeneralSettingsKeyed />
+      <PrintQrs />
       <ModesSettings />
       <RoomPrices />
       <BundlePlans />
@@ -382,6 +382,38 @@ function RoomPrices() {
   );
 }
 
+/** One-off QR prints: the general menu, booking, events, Wi-Fi and InstaPay. Each prints on its own page. */
+function PrintQrs() {
+  const { t, lang } = useI18n();
+  const snap = useSnap();
+  const st = snap.settings;
+  const o = typeof location === "undefined" ? "https://dotcowork.space" : location.origin;
+  const items: { key: string; label: string; hint: string; card: QrCard | null }[] = [
+    { key: "menu", label: t("qr.menu"), hint: "/menu", card: { value: `${o}/menu`, titleAr: "المنيو", titleEn: "Menu", ctaAr: "امسح واطلب", ctaEn: "Scan to order" } },
+    { key: "book", label: t("qr.book"), hint: "/menu?tab=book", card: { value: `${o}/menu?tab=book`, titleAr: "احجز أوضة", titleEn: "Book a room", ctaAr: "امسح واحجز", ctaEn: "Scan to book" } },
+    { key: "events", label: t("qr.events"), hint: "/events", card: { value: `${o}/events`, titleAr: "الإيفنتات", titleEn: "Events", ctaAr: "امسح واحجز مكانك", ctaEn: "Scan to save your seat" } },
+    { key: "wifi", label: t("wifi.title"), hint: st.wifi_ssid || t("qr.setFirst"), card: st.wifi_ssid ? wifiCard(st.wifi_ssid, st.wifi_password ?? "") : null },
+    { key: "instapay", label: t("pay.title"), hint: st.instapay_link || t("qr.setFirst"), card: st.instapay_link ? { value: st.instapay_link, titleAr: "ادفع بإنستاباي", titleEn: "Pay with InstaPay", ctaAr: "امسح وحوّل", ctaEn: "Scan to pay" } : null },
+  ];
+  return (
+    <Card className="p-4 grid gap-3">
+      <SectionTitle>{t("qr.title")}</SectionTitle>
+      <p className="text-sm text-muted">{t("qr.hint")}</p>
+      <div className="divide-y-2 divide-line">
+        {items.map((x) => (
+          <div key={x.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <span className="grid min-w-0">
+              <span className="font-semibold">{x.label}</span>
+              <span className="text-xs text-muted truncate" dir="ltr">{x.hint}</span>
+            </span>
+            <Button size="sm" disabled={!x.card} onClick={() => x.card && printQrCards([x.card], lang)}>{t("qr.print")}</Button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 const orderUrl = (token: string) => `${location.origin}/menu?t=${token}`;
 
 function PlacesSettings() {
@@ -395,19 +427,8 @@ function PlacesSettings() {
   const [confirmRegen, setConfirmRegen] = useState<Place | null>(null);
   const places = [...snap.places].sort((a, b) => a.kind.localeCompare(b.kind) || a.sort - b.sort);
 
-  async function printQrs() {
-    const cards = await Promise.all(
-      places.filter((p) => p.active && p.qr_token).map(async (p) => {
-        const svg = dotQrSvg(orderUrl(p.qr_token!), { label: `${p.name_en} menu` });
-        return `<div class="card"><div class="name">${p.name_ar} · ${p.name_en}</div><div class="qr">${svg}</div><div class="cta">${t("st.scanToOrder")} · Scan to order</div><div class="brand">dot</div></div>`;
-      }),
-    );
-    printHtml(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>QR</title><style>
-      @page { size: A4; margin: 10mm; } body { margin: 0; font-family: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif; color: #173a39; }
-      .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm; }
-      .card { border: 2px solid #173a39; border-top: 8px solid #d9a21b; padding: 6mm; text-align: center; break-inside: avoid; }
-      .name { font-size: 20px; font-weight: 700; } .qr svg { width: 60mm; height: 60mm; } .cta { font-size: 14px; font-weight: 600; } .brand { font-size: 12px; margin-top: 2mm; letter-spacing: .2em; }
-    </style></head><body><div class="grid">${cards.join("")}</div></body></html>`);
+  function printQrs() {
+    printQrCards(places.filter((p) => p.active && p.qr_token).map((p) => placeCard({ ...p, qr_token: p.qr_token! }, location.origin)), lang);
   }
 
   return (
@@ -428,6 +449,7 @@ function PlacesSettings() {
             </span>
             <span className="flex items-center gap-2">
               {p.qr_token ? <a className="num text-xs underline text-muted" href={orderUrl(p.qr_token)} target="_blank" rel="noreferrer">/menu?t={p.qr_token}</a> : null}
+              {p.qr_token && p.active ? <Button size="sm" onClick={() => printQrCards([placeCard({ ...p, qr_token: p.qr_token! }, location.origin)], lang)}>{t("qr.print")}</Button> : null}
               <Button size="sm" disabled={!online} onClick={() => setConfirmRegen(p)}>{t("st.regenQr")}</Button>
               <Button size="sm" disabled={!online} onClick={() => setEdit(p)}>{t("common.edit")}</Button>
             </span>
