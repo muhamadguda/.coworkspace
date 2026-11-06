@@ -187,9 +187,9 @@ export function Sheet({ open, onClose, title, children, footer, wide }: { open: 
         )}
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        <div className="tile-stripe flex items-center justify-between gap-3 px-4 py-3 border-b-2 border-line">
-          <h3 className="font-display text-lg font-bold min-w-0 truncate">{title}</h3>
-          <button type="button" onClick={onClose} className="size-9 grid place-items-center rounded-[2px] hover:bg-surface-2 text-xl" aria-label={t("common.close")}>
+        <div className="tile-stripe flex items-start justify-between gap-3 px-4 py-3 border-b-2 border-line">
+          <h3 className="font-display text-lg font-bold min-w-0 leading-snug break-words pt-1">{title}</h3>
+          <button type="button" onClick={onClose} className="size-9 shrink-0 grid place-items-center rounded-[2px] hover:bg-surface-2 text-xl" aria-label={t("common.close")}>
             ×
           </button>
         </div>
@@ -200,8 +200,9 @@ export function Sheet({ open, onClose, title, children, footer, wide }: { open: 
   );
 }
 
-export function Logo({ className, light }: { className?: string; light?: boolean }) {
-  const ink = light ? "var(--bg)" : "var(--strong)";
+/** `ink` fixes the colour when the background doesn't follow the light/dark theme (e.g. the landing sky). */
+export function Logo({ className, light, ink: fixed }: { className?: string; light?: boolean; ink?: string }) {
+  const ink = fixed ?? (light ? "var(--bg)" : "var(--strong)");
   return (
     <svg viewBox="-4 -4 282 158" className={cx("h-7 w-auto", className)} role="img" aria-label="dot">
       <path fill={ink} fillRule="evenodd" d="M0,100a50,50 0 1,0 100,0a50,50 0 1,0 -100,0zM20,100a30,30 0 1,1 60,0a30,30 0 1,1 -60,0z" />

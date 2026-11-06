@@ -117,7 +117,7 @@ function Day({ catalog }: { catalog: Catalog | null }) {
 
         {/* top bar */}
         <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 py-4 pointer-events-none" style={{ ...gutter, paddingTop: "max(16px, env(safe-area-inset-top, 0px))", color: fg }}>
-          <Logo light={dark} className="h-9" />
+          <Logo ink={fg} className="h-9" />
           <div className="flex items-center gap-2 pointer-events-auto">
             <a href="/menu" className="h-9 px-4 inline-flex items-center rounded-full border-2 text-sm font-semibold border-current">{t("c.nav.menu")}</a>
             <LangSwitch className="!bg-transparent !text-current !border-current !rounded-full" />
@@ -429,19 +429,18 @@ function Call() {
     <section style={{ background: NIGHT, color: SAGE }}>
       <div className="mx-auto max-w-7xl pt-24 pb-10 grid gap-8" style={gutter}>
         <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("l.visitTitle")} · {t("l.openLate")}</span>
-        <a href={`tel:${VENUE.phone}`} className="group block num font-bold leading-none tracking-tight text-[clamp(40px,10.5vw,170px)] whitespace-nowrap" dir="ltr">
+        <a href={`tel:${VENUE.phone}`} className="group block max-w-full num font-bold leading-none tracking-tight text-[clamp(28px,8.2vw,112px)] whitespace-nowrap justify-self-start" dir="ltr">
           <span className="inline-block transition-colors duration-300 group-hover:text-[#d9a21b]">{VENUE.phoneDisplay}</span>
         </a>
         <div className="flex flex-wrap gap-3">
           <a href={`tel:${VENUE.phone}`} className="h-14 px-7 inline-flex items-center rounded-full font-bold text-lg" style={{ background: MUSTARD, color: TEAL }}>{t("l.call")}</a>
           <a href={VENUE.mapUrl} target="_blank" rel="noreferrer" className="h-14 px-7 inline-flex items-center rounded-full font-bold text-lg border-2" style={{ borderColor: SAGE }}>{t("l.directions")} ↗</a>
+          <a href="/events" className="h-14 px-7 inline-flex items-center rounded-full font-bold text-lg border-2" style={{ borderColor: `${SAGE}55` }}>{t("ev.title")}</a>
         </div>
-        <div className="mt-16 pt-6 border-t flex flex-wrap items-center justify-between gap-3 text-sm opacity-70" style={{ borderColor: `${SAGE}22`, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-          <span className="flex items-center gap-3"><Logo light className="h-6" /> dotcowork.space</span>
-          <span className="flex gap-4">
-            <a href="/events" className="underline">{t("ev.title")}</a>
-            <a href="/staff" className="underline">{t("l.staff")}</a>
-          </span>
+        {/* Footer: the brand on one side; staff sign-in kept small and out of the way on the other. */}
+        <div className="mt-16 pt-6 border-t flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-sm" style={{ borderColor: `${SAGE}22`, paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))" }}>
+          <span className="flex items-center gap-3 opacity-70"><Logo ink={SAGE} className="h-6" /> dotcowork.space</span>
+          <a href="/staff" className="text-xs opacity-45 hover:opacity-90 underline underline-offset-4 whitespace-nowrap">{t("l.staff")}</a>
         </div>
       </div>
     </section>
