@@ -270,11 +270,11 @@ function ModesSettings() {
   const [edit, setEdit] = useState<Partial<Mode> | null>(null);
   return (
     <Card className="p-4 grid gap-3">
-      <SectionTitle action={<Button size="sm" variant="accent" disabled={!online} onClick={() => setEdit({ name_ar: "", name_en: "", hourly_rate: 0, sort: snap.modes.length + 1, active: true })}>{t("st.newMode")}</Button>}>{t("st.modes")}</SectionTitle>
+      <SectionTitle action={<Button size="sm" variant="accent" disabled={!online} onClick={() => setEdit({ name_ar: "", name_en: "", hourly_rate: 0, sort: snap.modes.length + 1, active: true, place_scope: "room" })}>{t("st.newMode")}</Button>}>{t("st.modes")}</SectionTitle>
       <div className="divide-y-2 divide-line">
         {snap.modes.map((m) => (
           <div key={m.id} className={cx("flex items-center justify-between gap-2 py-2", !m.active && "opacity-50")}>
-            <span className="font-semibold">{n(m)}</span>
+            <span className="grid"><span className="font-semibold">{n(m)}</span><span className="text-xs text-muted">{t(m.place_scope === "area" ? "md.areas" : m.place_scope === "all" ? "md.both" : "md.rooms")}</span></span>
             <span className="flex items-center gap-2">
               <span className="num">{money(m.hourly_rate)}{t("common.perHour")}</span>
               <Button size="sm" disabled={!online} onClick={() => setEdit(m)}>{t("common.edit")}</Button>
@@ -284,7 +284,7 @@ function ModesSettings() {
       </div>
       {edit ? (
         <Sheet open onClose={() => setEdit(null)} title={edit.id ? n(edit as Mode) : t("st.newMode")} footer={<Button variant="primary" disabled={!edit.name_ar?.trim() || !edit.name_en?.trim()} onClick={async () => {
-          const row = { name_ar: edit.name_ar!.trim(), name_en: edit.name_en!.trim(), hourly_rate: Number(edit.hourly_rate) || 0, sort: Number(edit.sort) || 0, active: !!edit.active };
+          const row = { name_ar: edit.name_ar!.trim(), name_en: edit.name_en!.trim(), hourly_rate: Number(edit.hourly_rate) || 0, sort: Number(edit.sort) || 0, active: !!edit.active, place_scope: edit.place_scope ?? "room" };
           if (await after(edit.id ? supabase().from("room_modes").update(row).eq("id", edit.id) : supabase().from("room_modes").insert(row))) setEdit(null);
         }}>{t("common.save")}</Button>}>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -292,6 +292,13 @@ function ModesSettings() {
             <Field label={t("m.nameEn")}><Input id="md-en" dir="ltr" value={edit.name_en ?? ""} onChange={(e) => setEdit({ ...edit, name_en: e.target.value })} /></Field>
             <Field label={t("st.rate")}><Input id="md-rate" numeric value={String(edit.hourly_rate ?? "")} onChange={(e) => setEdit({ ...edit, hourly_rate: e.target.value as unknown as number })} /></Field>
             <Field label={t("m.sort")}><Input id="md-sort" numeric value={String(edit.sort ?? 0)} onChange={(e) => setEdit({ ...edit, sort: Number(e.target.value) || 0 })} /></Field>
+            <Field label={t("md.scope")}>
+              <Select id="md-scope" value={edit.place_scope ?? "room"} onChange={(e) => setEdit({ ...edit, place_scope: e.target.value as Mode["place_scope"] })}>
+                <option value="room">{t("md.rooms")}</option>
+                <option value="area">{t("md.areas")}</option>
+                <option value="all">{t("md.both")}</option>
+              </Select>
+            </Field>
           </div>
           <Toggle checked={!!edit.active} onChange={(x) => setEdit({ ...edit, active: x })} label={t("st.active")} />
         </Sheet>

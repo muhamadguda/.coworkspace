@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
-import { rateFor } from "@/lib/pricing";
+import { modeFits, rateFor } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
 import { openWhatsApp } from "@/lib/phone";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Select, Sheet, Textarea } from "@/components/ui";
@@ -94,7 +94,7 @@ function NewBooking({ onClose }: { onClose: () => void }) {
   const { t, n, money, dur } = useI18n();
   const snap = useSnap();
   const rooms = snap.places.filter((p) => p.kind === "room" && p.active);
-  const modes = snap.modes.filter((m) => m.active);
+  const modes = snap.modes.filter((m) => m.active && modeFits(m, "room"));
   const [customerId, setCustomerId] = useState<string>();
   const [placeId, setPlaceId] = useState(rooms[0]?.id ?? "");
   const [modeId, setModeId] = useState(modes[0]?.id ?? "");

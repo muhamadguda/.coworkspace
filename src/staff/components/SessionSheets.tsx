@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
 import { bundleCredit, round2, splitEqual } from "@/lib/billing";
-import { rateFor } from "@/lib/pricing";
+import { modeFits, rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, Sheet, Toggle, cx } from "@/components/ui";
 import { activeBundlesOf, billsInSession, customerById, fmtHours, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
@@ -17,7 +17,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
   const { t, n, money, time, dur } = useI18n();
   const snap = useSnap();
   const now = useNow(30000);
-  const modes = snap.modes.filter((m) => m.active);
+  const modes = snap.modes.filter((m) => m.active && modeFits(m, place.kind));
   const bookings = snap.bookings.filter((b) => b.place_id === place.id && b.status === "confirmed" && Math.abs(Date.parse(b.starts_at) - now.getTime()) < 6 * 3600_000);
   const initial = snap.bookings.find((x) => x.id === presetBooking);
   const [customerId, setCustomerId] = useState<string | undefined>(initial?.customer_id ?? presetCustomer);
@@ -60,6 +60,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
 
   return (
     <Sheet open={open} onClose={onClose} title={`${t("ss.start")} · ${n(place)}`} footer={<Button variant="accent" size="lg" disabled={!customerId || !modeId || full || alreadyHere || (isArea && !!running)} onClick={start}>{t("ss.start")}</Button>}>
+      {!modes.length ? <p className="text-sm font-semibold text-warn border-s-4 border-warn ps-2">{t(isArea ? "md.noneArea" : "md.noneRoom")}</p> : null}
       {!isArea && bookings.length ? (
         <Field label={t("ss.fromBooking")}>
           <Select id="ss-booking" value={bookingId} onChange={(e) => pickBooking(e.target.value)}>

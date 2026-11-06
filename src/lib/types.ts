@@ -42,7 +42,7 @@ export type Place = {
   busy?: boolean;
 };
 
-export type Mode = { id: string; name_ar: string; name_en: string; hourly_rate: number; sort: number; active: boolean };
+export type Mode = { id: string; name_ar: string; name_en: string; hourly_rate: number; sort: number; active: boolean; place_scope?: "room" | "area" | "all" };
 
 export type Category = { id: string; name_ar: string; name_en: string; sort: number; active: boolean };
 

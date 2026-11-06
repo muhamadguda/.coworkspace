@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useI18n } from "@/lib/i18n";
 import { rpc } from "@/lib/supabase";
-import { rateFor } from "@/lib/pricing";
+import { modeFits, rateFor } from "@/lib/pricing";
 import type { Catalog } from "@/lib/types";
 import type { DictKey } from "@/lib/dict";
 import { LangSwitch, Logo, cx } from "@/components/ui";
@@ -337,7 +337,7 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
             {selArea ? <span className="text-sm font-semibold opacity-80">{t("l.areaNote")}</span> : null}
           </div>
           <ul className="grid">
-            {(catalog?.modes ?? []).map((m) => (
+            {(catalog?.modes ?? []).filter((m) => modeFits(m, spot?.kind)).map((m) => (
               <li key={m.id} className="flex items-baseline gap-3 py-3 border-b" style={{ borderColor: `${SAGE}22` }}>
                 <span className="font-semibold">{n(m)}</span>
                 <span aria-hidden className="flex-1 border-b-2 border-dotted -translate-y-1" style={{ borderColor: `${SAGE}40` }} />

@@ -6,7 +6,7 @@ do $t$
 declare uid uuid; plan uuid := gen_random_uuid(); cust uuid := gen_random_uuid(); bund uuid := gen_random_uuid();
   room uuid; mode uuid; sess uuid := gen_random_uuid(); bill uuid; item uuid; ord uuid := gen_random_uuid(); oi uuid := gen_random_uuid();
   r jsonb; v numeric; ok boolean;
-  area uuid := gen_random_uuid(); c1 uuid := gen_random_uuid(); c2 uuid := gen_random_uuid(); tok text; call uuid; ev uuid := gen_random_uuid();
+  area uuid := gen_random_uuid(); amode uuid := gen_random_uuid(); c1 uuid := gen_random_uuid(); c2 uuid := gen_random_uuid(); tok text; call uuid; ev uuid := gen_random_uuid();
 begin
   select user_id into uid from staff_profiles where role = 'owner' and active limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -70,20 +70,26 @@ begin
 
   -- Shared area: one timer per person, up to the seats.
   insert into places (id, kind, name_ar, name_en, capacity) values (area, 'area', 'مساحة', 'Area e2e', 1);
+  insert into room_modes (id, name_ar, name_en, hourly_rate, place_scope) values (amode, 'كرسي', 'Seat', 30, 'area');
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'ensure_customer', 'payload', jsonb_build_object('id', c1, 'phone', '01099990001')));
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'ensure_customer', 'payload', jsonb_build_object('id', c2, 'phone', '01099990002')));
-  perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c1, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+  perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c1, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
   begin
     perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+    ok := false;
+  exception when others then ok := sqlerrm = 'mode_not_here'; end;
+  assert ok, 'a room mode (PlayStation...) is refused in a shared area';
+  begin
+    perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
     ok := false;
   exception when others then ok := sqlerrm = 'area_full'; end;
   assert ok, 'a full shared area refuses another person';
   update places set capacity = 2 where id = area;
-  perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+  perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
   assert (select count(*) from room_sessions where place_id = area and status = 'active') = 2, 'two people, two timers, one area';
   update places set capacity = 5 where id = area;
   begin
-    perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+    perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
     ok := false;
   exception when unique_violation then ok := true; end;
   assert ok, 'one person cannot run two timers in the same area';

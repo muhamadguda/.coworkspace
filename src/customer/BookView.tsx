@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { rateFor } from "@/lib/pricing";
+import { modeFits, rateFor } from "@/lib/pricing";
 import type { Catalog } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, SectionTitle, Sheet, StatusDot, Textarea } from "@/components/ui";
 import { getIdentity, setIdentity } from "./local";
@@ -33,7 +33,8 @@ export function BookView({ catalog }: { catalog: Catalog }) {
   const errText = useErrorText();
   const rooms = catalog.places.filter((p) => p.kind === "room");
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
-  const [modeId, setModeId] = useState(catalog.modes[0]?.id ?? "");
+  const roomModes = catalog.modes.filter((m) => modeFits(m, "room"));
+  const [modeId, setModeId] = useState(roomModes[0]?.id ?? "");
   const [day, setDay] = useState(cairoToday());
   const [clock, setClock] = useState("18:00");
   const [duration, setDuration] = useState("120");
@@ -111,7 +112,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
 
       <Card className="p-4 grid gap-4">
         <Field group label={t("c.book.mode")}>
-          <Segmented value={modeId} onChange={setModeId} options={catalog.modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(rateFor(catalog.modes, catalog.mode_prices, roomId, m.id))}</span>{t("common.perHour")}</span> }))} />
+          <Segmented value={modeId} onChange={setModeId} options={roomModes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(rateFor(catalog.modes, catalog.mode_prices, roomId, m.id))}</span>{t("common.perHour")}</span> }))} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label={t("c.book.date")}>
