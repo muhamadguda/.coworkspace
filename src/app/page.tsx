@@ -10,7 +10,7 @@ const jsonLd = {
   additionalType: ["https://schema.org/CafeOrCoffeeShop"],
   name: "dot",
   alternateName: "dot co-working space",
-  description: "Co-working space and café: quiet tables to study and work, rooms by the hour for meetings, PlayStation and movie nights, and a corner to draw and paint.",
+  description: "Co-working space and café, open 24/7: quiet tables to study and work, rooms by the hour for meetings, PlayStation and movie nights, and a corner to draw and paint.",
   url: "https://dotcowork.space",
   image: "https://dotcowork.space/opengraph-image",
   logo: "https://dotcowork.space/icons/icon-512.png",
@@ -20,12 +20,14 @@ const jsonLd = {
   currenciesAccepted: "EGP",
   address: { "@type": "PostalAddress", addressCountry: "EG" },
   potentialAction: { "@type": "OrderAction", target: "https://dotcowork.space/menu" },
+  // Open around the clock, every day.
+  openingHoursSpecification: [{ "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], opens: "00:00", closes: "23:59" }],
 };
 
 export const metadata: Metadata = {
   title: { absolute: "dot · Focus. Work. Play." },
-  description: "Co-working space and café: quiet tables to study, rooms by the hour for meetings, PlayStation and movie nights, and a corner to draw and paint.",
-  openGraph: { title: "dot · Focus. Work. Play.", description: "Co-working space and café. Study, meet, work, watch, play, paint.", url: "https://dotcowork.space", siteName: "dot", type: "website" },
+  description: "Co-working space and café, open 24/7: quiet tables to study, rooms by the hour for meetings, PlayStation and movie nights, and a corner to draw and paint.",
+  openGraph: { title: "dot · Focus. Work. Play.", description: "Co-working space and café, open 24/7. Study, meet, work, watch, play, paint.", url: "https://dotcowork.space", siteName: "dot", type: "website" },
   alternates: { canonical: "https://dotcowork.space" },
 };
 

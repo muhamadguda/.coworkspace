@@ -16,7 +16,7 @@ import { SampleEvents } from "./SampleEvents";
 const Diorama = dynamic(() => import("./Diorama").then((m) => m.Diorama), { ssr: false });
 
 // The page is one day at dot. Scrolling (or dragging along the timeline) moves the clock
-// from morning to 3 AM: the sun crosses a 3D model of the place, shadows move, the rooms
+// from morning to 3 AM (dot never closes): the sun crosses a 3D model of the place, shadows move, the rooms
 // light up at night, and the word on screen changes with the hour.
 const TEAL = "#173a39";
 const NIGHT = "#081716";
