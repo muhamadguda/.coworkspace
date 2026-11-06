@@ -10,6 +10,7 @@ import type { DictKey } from "@/lib/dict";
 import { LangSwitch, Logo, cx } from "@/components/ui";
 import type { DioramaInput } from "./Diorama";
 import { VENUE } from "./config";
+import { SampleEvents } from "./SampleEvents";
 
 // three.js loads after the page is interactive; the story reads fine before it arrives.
 const Diorama = dynamic(() => import("./Diorama").then((m) => m.Diorama), { ssr: false });
@@ -41,6 +42,7 @@ export function Landing({ menuQr }: { menuQr?: string }) {
       <Doors />
       <Floor catalog={catalog} />
       <Board catalog={catalog} menuQr={menuQr} />
+      <SampleEvents />
       <Events catalog={catalog} />
       <Call />
     </div>

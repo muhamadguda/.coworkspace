@@ -178,3 +178,6 @@ input[type="number"] { -moz-appearance: textfield; }
 @keyframes meter-tick { from { transform: translateY(-4px); opacity: .4; } to { transform: none; opacity: 1; } }
 .meter-tick { animation: meter-tick .5s ease-out; display: inline-block; }
 @media (prefers-reduced-motion: reduce) { .meter-tick { animation: none; } }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
