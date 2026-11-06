@@ -73,12 +73,12 @@ begin
   insert into room_modes (id, name_ar, name_en, hourly_rate, place_scope) values (amode, 'كرسي', 'Seat', 30, 'area');
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'ensure_customer', 'payload', jsonb_build_object('id', c1, 'phone', '01099990001')));
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'ensure_customer', 'payload', jsonb_build_object('id', c2, 'phone', '01099990002')));
-  perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c1, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
   begin
     perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
     ok := false;
   exception when others then ok := sqlerrm = 'mode_not_here'; end;
   assert ok, 'a room mode (PlayStation...) is refused in a shared area';
+  perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c1, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
   begin
     perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'payload', jsonb_build_object('id', gen_random_uuid(), 'place_id', area, 'customer_id', c2, 'bill_id', gen_random_uuid(), 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
     ok := false;
