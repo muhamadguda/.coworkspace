@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useI18n } from "@/lib/i18n";
 import { rpc } from "@/lib/supabase";
@@ -222,88 +222,132 @@ function Doors() {
 // ---------------------------------------------------------------- the floor (live rooms + prices)
 function Floor({ catalog }: { catalog: Catalog | null }) {
   const { t, n, money, lang } = useI18n();
-  const rooms = useMemo(() => catalog?.places.filter((p) => p.kind === "room") ?? [], [catalog]);
-  const areas = useMemo(() => (catalog?.places ?? []).filter((p) => p.kind === "area").map((p) => ({ ...p, capacity: catalog?.areas?.find((a) => a.id === p.id)?.capacity ?? null, occupied: catalog?.areas?.find((a) => a.id === p.id)?.occupied ?? 0 })), [catalog]);
-  const tables = useMemo(() => catalog?.places.filter((p) => p.kind === "table") ?? [], [catalog]);
+  const places = catalog?.places ?? [];
+  const rooms = places.filter((p) => p.kind === "room");
+  const tables = places.filter((p) => p.kind === "table");
+  const areas = places.filter((p) => p.kind === "area").map((p) => {
+    const a = catalog?.areas?.find((x) => x.id === p.id);
+    return { ...p, capacity: a?.capacity ?? null, occupied: a?.occupied ?? 0 };
+  });
+  const spots = [...rooms, ...areas];
   const [sel, setSel] = useState<string | null>(null);
-  const room = rooms.find((r) => r.id === sel) ?? rooms[0];
-  const pattern = `radial-gradient(circle at 0 0, ${SAGE}12 0 20%, transparent 20.5%), radial-gradient(circle at 100% 0, ${SAGE}12 0 20%, transparent 20.5%), radial-gradient(circle at 0 100%, ${SAGE}12 0 20%, transparent 20.5%), radial-gradient(circle at 100% 100%, ${SAGE}12 0 20%, transparent 20.5%)`;
+  const spot = spots.find((r) => r.id === sel) ?? spots[0];
+  const selArea = areas.find((a) => a.id === spot?.id);
+  const FREE = "#4cc38a";
+  const BUSY = "#f0756c";
+  const zone = (label: string) => <span className="text-[11px] uppercase tracking-[0.3em] opacity-60">{label}</span>;
+  const dayName = (d: number) => new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, 7 + d)));
 
   return (
     <section style={{ background: TEAL, color: SAGE }}>
       <div className="mx-auto max-w-7xl py-20 sm:py-28 grid gap-10 lg:grid-cols-[1.4fr_1fr] items-start" style={gutter}>
         <div className="grid gap-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 className="font-display font-bold text-[clamp(52px,9vw,128px)] leading-[0.85]">{t("l.floorTitle")}</h2>
-            <p className="max-w-[34ch] opacity-75">{t("l.floorLede")}</p>
-          </div>
-          <div className="grid gap-[6px] p-[6px] rounded-[2px]" style={{ gridTemplateColumns: `repeat(${Math.max(rooms.length, 3)}, minmax(0, 1fr))`, background: "#0f2a29", backgroundImage: pattern, backgroundSize: "40px 40px" }}>
-            {(rooms.length ? rooms : [null, null, null]).map((r, i) =>
-              r ? (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setSel(r.id)}
-                  aria-pressed={room?.id === r.id}
-                  className={cx("aspect-[4/5] sm:aspect-[5/4] rounded-[2px] border-2 p-3 text-start grid content-between transition-all duration-300", room?.id === r.id ? "scale-[1.03] shadow-[0_0_0_4px_rgba(217,162,27,0.25)]" : "hover:scale-[1.015]")}
-                  style={{ borderColor: room?.id === r.id ? MUSTARD : r.busy ? "#f0756c" : "#4cc38a", background: r.busy ? "rgba(240,117,108,0.14)" : "rgba(76,195,138,0.12)" }}
-                >
-                  <span className="font-display text-xl sm:text-3xl font-bold">{n(r)}</span>
-                  <span className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
-                    <span className="live-pulse size-2.5 rounded-full" style={{ background: r.busy ? "#f0756c" : "#4cc38a" }} />
-                    {r.busy ? t("common.inUse") : t("common.free")}
-                  </span>
-                </button>
-              ) : (
-                <span key={i} className="aspect-[4/5] sm:aspect-[5/4] rounded-[2px] bg-white/5 animate-pulse" />
-              ),
-            )}
-            <div className="col-span-full grid grid-cols-6 gap-2 py-7 px-2">
-              {(tables.length ? tables : Array.from({ length: 6 }, () => null)).slice(0, 12).map((tb, i) => (
-                <span key={tb?.id ?? i} className="grid place-items-center">
-                  <span className="size-8 sm:size-10 rounded-full border-2" style={{ borderColor: tb?.busy ? "#f0756c" : `${SAGE}55`, background: tb?.busy ? "rgba(240,117,108,0.25)" : "transparent" }} />
-                </span>
-              ))}
-              <span className="col-span-full text-center text-[11px] uppercase tracking-[0.3em] opacity-50">{t("l.tablesZone")}</span>
+          <div className="grid gap-4">
+            <h2 className="font-display font-bold text-[clamp(48px,8.5vw,120px)] leading-[0.9]">{t("l.floorTitle")}</h2>
+            <p className="max-w-[46ch] opacity-75">{t("l.floorLede")}</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-semibold">
+              <span className="inline-flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ background: FREE }} />{t("common.free")}</span>
+              <span className="inline-flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ background: BUSY }} />{t("common.inUse")}</span>
             </div>
-            <div className="col-span-full h-10 rounded-[2px] grid place-items-center text-[11px] uppercase tracking-[0.3em] font-semibold" style={{ background: MUSTARD, color: TEAL }}>{t("l.counterZone")}</div>
+          </div>
+
+          {/* The plan: rooms, shared areas with a dot per seat, tables, and the counter. */}
+          <div className="grid gap-5 p-4 sm:p-5 rounded-[4px] border-2" style={{ borderColor: `${SAGE}1f`, background: "#0f2a29", backgroundImage: `radial-gradient(${SAGE}14 1.2px, transparent 1.4px)`, backgroundSize: "18px 18px" }}>
+            {rooms.length || !catalog ? (
+              <div className="grid gap-2">
+                {zone(t("common.rooms"))}
+                <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
+                  {(rooms.length ? rooms : [null, null]).map((r, i) =>
+                    r ? (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setSel(r.id)}
+                        aria-pressed={spot?.id === r.id}
+                        className="min-h-24 rounded-[4px] border-2 p-3 text-start grid content-between gap-3 transition-all duration-300 hover:-translate-y-0.5"
+                        style={{ borderColor: spot?.id === r.id ? MUSTARD : r.busy ? `${BUSY}aa` : `${FREE}88`, background: r.busy ? "rgba(240,117,108,0.12)" : "rgba(76,195,138,0.08)", boxShadow: spot?.id === r.id ? `0 0 0 4px ${MUSTARD}33` : undefined }}
+                      >
+                        <span className="font-display text-xl sm:text-2xl font-bold leading-tight">{n(r)}</span>
+                        <span className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
+                          <span className="live-pulse size-2.5 rounded-full" style={{ background: r.busy ? BUSY : FREE }} />
+                          {r.busy ? t("common.inUse") : t("common.free")}
+                        </span>
+                      </button>
+                    ) : (
+                      <span key={i} className="min-h-24 rounded-[4px] bg-white/5 animate-pulse" />
+                    ),
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {areas.length ? (
+              <div className="grid gap-2">
+                {zone(t("ar.title"))}
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {areas.map((a) => {
+                    const cap = a.capacity ?? Math.max(a.occupied, 1);
+                    const free = Math.max(0, cap - a.occupied);
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => setSel(a.id)}
+                        aria-pressed={spot?.id === a.id}
+                        className="rounded-[4px] border-2 p-3 text-start grid gap-3 transition-all duration-300 hover:-translate-y-0.5"
+                        style={{ borderColor: spot?.id === a.id ? MUSTARD : free === 0 ? `${BUSY}aa` : `${FREE}88`, background: "rgba(234,240,234,0.04)", boxShadow: spot?.id === a.id ? `0 0 0 4px ${MUSTARD}33` : undefined }}
+                      >
+                        <span className="flex items-baseline justify-between gap-3">
+                          <span className="font-display text-xl sm:text-2xl font-bold leading-tight">{n(a)}</span>
+                          <span className="text-xs sm:text-sm font-semibold whitespace-nowrap" style={{ color: free === 0 ? BUSY : FREE }}>{free === 0 ? t("ar.full") : t("ar.seatsFree", { n: free })}</span>
+                        </span>
+                        {/* one dot per seat: filled = taken */}
+                        <span className="flex flex-wrap gap-1.5" aria-hidden>
+                          {Array.from({ length: Math.min(cap, 30) }).map((_, i) => (
+                            <span key={i} className="size-3 rounded-full border-2" style={i < a.occupied ? { background: BUSY, borderColor: BUSY } : { borderColor: `${FREE}aa` }} />
+                          ))}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {tables.length ? (
+              <div className="grid gap-2">
+                {zone(t("l.tablesZone"))}
+                <div className="flex flex-wrap gap-2.5">
+                  {tables.slice(0, 16).map((tb) => (
+                    <span key={tb.id} className="size-8 rounded-full border-2" title={n(tb)} style={{ borderColor: tb.busy ? BUSY : `${SAGE}55`, background: tb.busy ? "rgba(240,117,108,0.25)" : "transparent" }} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="h-10 rounded-[4px] grid place-items-center text-[11px] uppercase tracking-[0.3em] font-semibold" style={{ background: MUSTARD, color: TEAL }}>{t("l.counterZone")}</div>
           </div>
         </div>
 
+        {/* The chosen spot: what it costs, and how to get it. */}
         <div className="lg:sticky lg:top-10 grid gap-5 border-t-2 lg:border-t-0 lg:border-s-2 pt-6 lg:pt-0 lg:ps-10" style={{ borderColor: `${SAGE}33` }}>
           <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("l.pickRoom")}</span>
-          <h3 key={room?.id} className="word-in font-display font-bold text-6xl">{room ? n(room) : "…"}</h3>
+          <div className="grid gap-1">
+            <h3 key={spot?.id} className="word-in font-display font-bold text-5xl sm:text-6xl leading-tight">{spot ? n(spot) : "…"}</h3>
+            {selArea ? <span className="text-sm font-semibold opacity-80">{t("l.areaNote")}</span> : null}
+          </div>
           <ul className="grid">
             {(catalog?.modes ?? []).map((m) => (
               <li key={m.id} className="flex items-baseline gap-3 py-3 border-b" style={{ borderColor: `${SAGE}22` }}>
                 <span className="font-semibold">{n(m)}</span>
                 <span aria-hidden className="flex-1 border-b-2 border-dotted -translate-y-1" style={{ borderColor: `${SAGE}40` }} />
                 <span className="num font-bold text-xl whitespace-nowrap">
-                  {catalog ? money(rateFor(catalog.modes, catalog.mode_prices, room?.id, m.id)) : ""}
+                  {catalog ? money(rateFor(catalog.modes, catalog.mode_prices, spot?.id, m.id)) : ""}
                   <span className="text-sm font-medium opacity-60">{t("common.perHour")}</span>
                 </span>
               </li>
             ))}
           </ul>
-          {areas.length ? (
-            <div className="grid gap-2">
-              <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("ar.title")}</span>
-              <ul className="grid gap-1.5">
-                {areas.map((a) => {
-                  const free = a.capacity != null ? Math.max(0, a.capacity - a.occupied) : null;
-                  return (
-                    <li key={a.id} className="flex items-center justify-between gap-3">
-                      <span className="font-semibold">{n(a)}</span>
-                      <span className="flex items-center gap-2 text-sm font-semibold">
-                        <span className="live-pulse size-2.5 rounded-full" style={{ background: free === 0 ? "#f0756c" : "#4cc38a" }} />
-                        {free == null ? t("ar.people", { n: a.occupied }) : free === 0 ? t("ar.full") : t("ar.seatsFree", { n: free })}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
           {catalog?.happy_hours?.length ? (
             <div className="grid gap-2">
               <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("hh.title")}</span>
@@ -312,7 +356,7 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
                   <li key={h.id} className="flex flex-wrap items-baseline gap-x-3 text-sm">
                     <span className="num font-bold text-lg" style={{ color: MUSTARD }}>−{h.percent_off}%</span>
                     <span className="num font-semibold" dir="ltr">{h.start_time}–{h.end_time}</span>
-                    <span className="opacity-75">{h.days.length === 7 ? t("hh.everyDay") : [6, 0, 1, 2, 3, 4, 5].filter((d) => h.days.includes(d)).map((d) => new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, 7 + d)))).join(" · ")}</span>
+                    <span className="opacity-75">{h.days.length === 7 ? t("hh.everyDay") : [6, 0, 1, 2, 3, 4, 5].filter((d) => h.days.includes(d)).map(dayName).join(" · ")}</span>
                     {n(h) ? <span className="opacity-75">· {n(h)}</span> : null}
                   </li>
                 ))}
@@ -331,9 +375,15 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
               </div>
             </div>
           ) : null}
-          <a href="/menu?tab=book" className="justify-self-start h-14 px-7 inline-flex items-center rounded-full font-bold text-lg transition-transform hover:scale-[1.04]" style={{ background: MUSTARD, color: TEAL }}>
-            {t("l.bookThis")}
-          </a>
+          {selArea ? (
+            <a href={VENUE.mapUrl} target="_blank" rel="noreferrer" className="justify-self-start h-14 px-7 inline-flex items-center rounded-full font-bold text-lg transition-transform hover:scale-[1.04]" style={{ background: MUSTARD, color: TEAL }}>
+              {t("l.walkIn")} ↗
+            </a>
+          ) : (
+            <a href="/menu?tab=book" className="justify-self-start h-14 px-7 inline-flex items-center rounded-full font-bold text-lg transition-transform hover:scale-[1.04]" style={{ background: MUSTARD, color: TEAL }}>
+              {t("l.bookThis")}
+            </a>
+          )}
         </div>
       </div>
     </section>
