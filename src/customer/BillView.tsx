@@ -7,6 +7,7 @@ import { bundleCredit, computeRoomFee, happyNow, round2, type FeeSettings, type 
 import { wifiQrText } from "@/lib/dotqr";
 import { DotQR } from "@/components/DotQR";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { isOpenBooking } from "@/lib/pricing";
 import type { ChosenOption, OrderStatus } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Toggle, useToast } from "@/components/ui";
 import { getIdentity, setIdentity } from "./local";
@@ -34,6 +35,7 @@ type BillData = {
   instapay_link?: string | null;
   happy_hours?: HappyHour[];
   offers_opt_in?: boolean;
+  events?: { id: string; title_ar: string; title_en: string; starts_at: string; seats: number }[];
 };
 
 export function BillView() {
@@ -49,7 +51,7 @@ export function BillView() {
   const load = useCallback(async (p: string, c: string, quiet = false) => {
     if (!quiet) setBusy(true);
     try {
-      const res = await rpc<BillData>("customer_bill3", { p_phone: normalizePhone(p), p_code: c.trim() });
+      const res = await rpc<BillData>("customer_bill4", { p_phone: normalizePhone(p), p_code: c.trim() });
       setData(res);
       setError(null);
       const prev = getIdentity();
@@ -64,7 +66,7 @@ export function BillView() {
   useEffect(() => {
     const me = getIdentity();
     if (me.phone && me.code) {
-      rpc<BillData>("customer_bill3", { p_phone: me.phone, p_code: me.code })
+      rpc<BillData>("customer_bill4", { p_phone: me.phone, p_code: me.code })
         .then(setData)
         .catch(() => {});
     }
@@ -214,6 +216,25 @@ export function BillView() {
         </Card>
       ) : null}
 
+      {(data.events ?? []).length ? (
+        <Card className="p-4 grid gap-2">
+          <span className="font-semibold">{t("ev.myEvents")}</span>
+          {data.events!.map((ev) => (
+            <div key={ev.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <a href={`/events#${ev.id}`} className="underline underline-offset-2">{lang === "ar" ? ev.title_ar : ev.title_en} · {dateTime(ev.starts_at)} · <span className="num">×{ev.seats}</span></a>
+              <Button size="sm" variant="ghost" onClick={async () => {
+                try {
+                  await rpc("customer_event_cancel", { p_event: ev.id, p_phone: data.customer.phone, p_code: data.customer.code });
+                  await load(data.customer.phone, data.customer.code, true);
+                } catch (e) {
+                  setError(errText(errorCode(e)));
+                }
+              }}>{t("ev.cancelSeat")}</Button>
+            </div>
+          ))}
+        </Card>
+      ) : null}
+
       {data.wifi ? <WifiCard ssid={data.wifi.ssid} password={data.wifi.password} /> : null}
 
       {(data.bundles ?? []).length ? (
@@ -257,7 +278,7 @@ export function BillView() {
             <Card key={k.id} className="p-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="grid">
                 <span className="font-semibold">{lang === "ar" ? k.place_ar : k.place_en} · {lang === "ar" ? k.mode_ar : k.mode_en}</span>
-                <span className="text-sm text-muted">{dateTime(k.starts_at)} · {dur(k.duration_minutes)}</span>
+                <span className="text-sm text-muted">{dateTime(k.starts_at)} · {isOpenBooking({ duration_minutes: k.duration_minutes }) ? t("bk.openEnded") : dur(k.duration_minutes)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Pill tone={k.status === "confirmed" ? "free" : "warn"}>{t(`c.book.status.${k.status}` as const)}</Pill>

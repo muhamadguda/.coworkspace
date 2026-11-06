@@ -7,6 +7,9 @@ export function rateFor(modes: Mode[] | Pick<Mode, "id" | "hourly_rate">[], pric
   return modes.find((m) => m.id === modeId)?.hourly_rate ?? 0;
 }
 
+/** Open-ended bookings hold the room for 12 hours (720 min); show them as open-ended, not "12 h". */
+export const isOpenBooking = (b: { duration_minutes: number; open_ended?: boolean }) => b.open_ended === true || b.duration_minutes === 720;
+
 /** Is this mode offered in this kind of place? Rooms get room modes, shared areas get seat modes. */
 export function modeFits(m: Pick<Mode, "place_scope">, kind: string | undefined): boolean {
   const scope = m.place_scope ?? "all";

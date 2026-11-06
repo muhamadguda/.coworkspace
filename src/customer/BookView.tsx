@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { modeFits, rateFor } from "@/lib/pricing";
+import { isOpenBooking, modeFits, rateFor } from "@/lib/pricing";
 import type { Catalog } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, SectionTitle, Sheet, StatusDot, Textarea } from "@/components/ui";
 import { getIdentity, setIdentity } from "./local";
@@ -53,13 +53,15 @@ export function BookView({ catalog }: { catalog: Catalog }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await rpc<{ booking_id: string; customer_code: string | null }>("customer_book", {
+      const open = duration === "open";
+      const res = await rpc<{ booking_id: string; customer_code: string | null }>("customer_book2", {
         p_phone: normalizePhone(phone),
         p_name: name.trim(),
         p_place_id: roomId,
         p_mode_id: modeId,
         p_starts_at: cairoToIso(day, clock),
-        p_duration: Number(duration),
+        p_duration: open ? 720 : Number(duration),
+        p_open: open,
         p_group_size: group ? Number(group) : null,
         p_note: note.trim(),
       });
@@ -99,7 +101,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
               {upcoming.length ? (
                 <div className="text-xs text-muted grid gap-0.5">
                   {upcoming.map((u, i) => (
-                    <span key={i}>{date(u.starts_at)} · {time(u.starts_at)} · {dur(u.duration_minutes)}</span>
+                    <span key={i}>{date(u.starts_at)} · {time(u.starts_at)} · {isOpenBooking({ duration_minutes: u.duration_minutes }) ? t("bk.openEnded") : dur(u.duration_minutes)}</span>
                   ))}
                 </div>
               ) : null}
@@ -127,6 +129,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
           </Field>
           <Field label={t("c.book.duration")}>
             <Select id="book-duration" value={duration} onChange={(e) => setDuration(e.target.value)}>
+              <option value="open">{t("c.book.openEnded")}</option>
               {[60, 90, 120, 180, 240, 300, 360, 480].map((m) => (
                 <option key={m} value={m}>{dur(m)}</option>
               ))}
@@ -138,7 +141,7 @@ export function BookView({ catalog }: { catalog: Catalog }) {
             <span className="text-sm font-semibold">{t("c.book.taken")}</span>
             <div className="flex flex-wrap gap-1.5">
               {schedule.map((s, i) => (
-                <Pill key={i} tone="busy">{date(s.starts_at)} {time(s.starts_at)} · {dur(s.duration_minutes)}</Pill>
+                <Pill key={i} tone="busy">{date(s.starts_at)} {time(s.starts_at)} · {isOpenBooking({ duration_minutes: s.duration_minutes }) ? t("bk.openEnded") : dur(s.duration_minutes)}</Pill>
               ))}
             </div>
           </div>

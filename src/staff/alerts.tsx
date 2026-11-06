@@ -41,9 +41,10 @@ export function useAlerts(goto: (tab: string, focus?: string) => void) {
 
   const alerts = useMemo<AlertItem[]>(() => {
     const out: AlertItem[] = [];
-    // A guest pressed "Call staff" on their table's menu. Calls older than 2 hours are stale.
+    // A guest pressed "Call staff" on their table's menu. After 15 minutes unanswered it counts as missed
+    // (the owner sees it in Reports) and leaves the counter's screen.
     for (const c of openCalls(snap)) {
-      if (now.getTime() - Date.parse(c.created_at) > 2 * 3600_000) continue;
+      if (now.getTime() - Date.parse(c.created_at) > 15 * 60_000) continue;
       const place = placeById(snap, c.place_id);
       out.push({
         key: `call:${c.id}`,

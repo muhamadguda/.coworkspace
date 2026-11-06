@@ -94,11 +94,29 @@ begin
   exception when unique_violation then ok := true; end;
   assert ok, 'one person cannot run two timers in the same area';
 
+  -- Server re-checks room fees: a right fee is recorded quietly, a wrong one is flagged.
+  update settings set min_session_minutes = 60, billing_step_minutes = 15 where id = 1;
+  r := staff_op5(jsonb_build_object('id', gen_random_uuid(), 'type', 'end_session', 'payload', jsonb_build_object(
+    'session_id', (select id from room_sessions where place_id = area and booker_customer_id = c1 and status = 'active'),
+    'billed_minutes', 60, 'room_fee', 30, 'split_mode', 'booker',
+    'shares', jsonb_build_array(jsonb_build_object('bill_id', (select id from bills where customer_id = c1 and status = 'open'), 'amount', 30)))));
+  assert (select abs(diff) < 1 from fee_checks f join room_sessions s on s.id = f.session_id where s.booker_customer_id = c1 and s.place_id = area), 'correct fee passes the check';
+  r := staff_op5(jsonb_build_object('id', gen_random_uuid(), 'type', 'end_session', 'payload', jsonb_build_object(
+    'session_id', (select id from room_sessions where place_id = area and booker_customer_id = c2 and status = 'active'),
+    'billed_minutes', 60, 'room_fee', 1, 'split_mode', 'booker',
+    'shares', jsonb_build_array(jsonb_build_object('bill_id', (select id from bills where customer_id = c2 and status = 'open'), 'amount', 1)))));
+  assert exists (select 1 from audit_log where action = 'fee_mismatch'), 'a wrong fee is flagged to the owner';
+  assert jsonb_array_length(owner_fee_checks(current_date - 1, current_date + 1)) >= 1, 'owner sees the mismatch';
+
+  -- Open-ended booking holds the room and says so.
+  r := customer_book2('01099990009', 'Open', room, mode, now() + interval '3 days', 60, true, null, '');
+  assert (select open_ended and duration_minutes = 720 from bookings where id = (r->>'booking_id')::uuid), 'open-ended booking stored';
+
   -- Call staff from a table QR: one ring per reason until handled.
   select qr_token into tok from places where kind = 'table' and active limit 1;
-  r := customer_call_staff(tok, 'water');
+  r := customer_call_staff2(tok, 'water', null);
   call := (r->>'id')::uuid;
-  assert (customer_call_staff(tok, 'water')->>'duplicate')::boolean, 'pressing again does not ring twice';
+  assert (customer_call_staff2(tok, 'water', null)->>'duplicate')::boolean, 'pressing again does not ring twice';
   perform staff_op4(jsonb_build_object('id', gen_random_uuid(), 'type', 'handle_call', 'payload', jsonb_build_object('call_id', call)));
   assert (select handled_at is not null from staff_calls where id = call), 'call handled';
   assert jsonb_array_length(staff_snapshot2()->'staff_calls') >= 1, 'calls in the snapshot';
@@ -127,6 +145,9 @@ begin
     ok := false;
   exception when others then ok := sqlerrm = 'already_announced'; end;
   assert ok, 'no double announcement';
+  perform customer_event_cancel(ev, '01099990003', (select code from customers where phone = '01099990003'));
+  assert (select status from event_signups s join customers c on c.id = s.customer_id where c.phone = '01099990003' and s.event_id = ev) = 'cancelled', 'guest cancels own seat';
+  assert (public_events()->0->>'id') is not null, 'events still listed';
 
   -- Anonymous callers cannot touch stock or staff ops.
   perform set_config('role', 'anon', true);

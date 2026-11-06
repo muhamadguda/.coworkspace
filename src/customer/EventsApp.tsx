@@ -24,6 +24,7 @@ export function EventsApp() {
   const [events, setEvents] = useState<PublicEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [signing, setSigning] = useState<PublicEvent | null>(null);
+  const [cancelling, setCancelling] = useState<PublicEvent | null>(null);
   const [signed, setSigned] = useState<Record<string, number>>(readSigned);
 
   const fetchEvents = useCallback(() => rpc<PublicEvent[]>("public_events").then((x) => { setEvents(x); setFailed(false); }).catch(() => setFailed(true)), []);
@@ -66,11 +67,27 @@ export function EventsApp() {
         ) : !events ? (
           [0, 1].map((i) => <div key={i} className="h-48 bg-surface-2 rounded-[2px] animate-pulse" />)
         ) : events.length ? (
-          events.map((e) => <EventCard key={e.id} e={e} going={signed[e.id]} onSignUp={() => setSigning(e)} />)
+          events.map((e) => <EventCard key={e.id} e={e} going={signed[e.id]} onSignUp={() => setSigning(e)} onCancel={() => setCancelling(e)} />)
         ) : (
           <Empty>{t("ev.none")}</Empty>
         )}
       </main>
+      {cancelling ? (
+        <CancelSheet
+          e={cancelling}
+          onClose={() => setCancelling(null)}
+          onDone={() => {
+            const next = { ...readSigned() };
+            delete next[cancelling.id];
+            try {
+              localStorage.setItem(SIGNED, JSON.stringify(next));
+            } catch {}
+            setSigned(next);
+            setCancelling(null);
+            load();
+          }}
+        />
+      ) : null}
       {signing ? (
         <SignUpSheet
           e={signing}
@@ -96,7 +113,7 @@ export function EventWhen({ e }: { e: Pick<PublicEvent, "starts_at" | "ends_at">
   return <span>{day} · <span className="num" dir="ltr">{time(e.starts_at)}{e.ends_at ? `–${time(e.ends_at)}` : ""}</span></span>;
 }
 
-function EventCard({ e, going, onSignUp }: { e: PublicEvent; going?: number; onSignUp: () => void }) {
+function EventCard({ e, going, onSignUp, onCancel }: { e: PublicEvent; going?: number; onSignUp: () => void; onCancel: () => void }) {
   const { t, money, lang } = useI18n();
   const full = e.seats_left === 0;
   const desc = lang === "ar" ? e.desc_ar || e.desc_en : e.desc_en || e.desc_ar;
@@ -131,10 +148,43 @@ function EventCard({ e, going, onSignUp }: { e: PublicEvent; going?: number; onS
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="accent" size="lg" disabled={full && !going} onClick={onSignUp}>{going ? t("ev.change") : full ? t("ev.full") : t("ev.signUp")}</Button>
+          {going ? <Button variant="ghost" onClick={onCancel}>{t("ev.cancelSeat")}</Button> : null}
           <Button variant="ghost" onClick={share}>{t("ev.share")}</Button>
         </div>
       </div>
     </Card>
+  );
+}
+
+/** Give the seat back: phone + customer code (remembered on this phone when there is one). */
+function CancelSheet({ e, onClose, onDone }: { e: PublicEvent; onClose: () => void; onDone: () => void }) {
+  const { t, lang } = useI18n();
+  const errText = useErrorText();
+  const toast = useToast();
+  const me = getIdentity();
+  const [phone, setPhone] = useState(me.phone);
+  const [code, setCode] = useState(me.code);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc("customer_event_cancel", { p_event: e.id, p_phone: normalizePhone(phone), p_code: code.trim() });
+      toast(t("ev.cancelled"));
+      onDone();
+    } catch (err) {
+      setError(errText(isNetworkError(err) ? "network" : errorCode(err)));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Sheet open onClose={onClose} title={`${t("ev.cancelSeat")} · ${lang === "ar" ? e.title_ar : e.title_en}`} footer={<Button variant="danger" size="lg" busy={busy} disabled={!isValidPhone(phone) || code.trim().length < 4} onClick={submit}>{t("ev.cancelSeat")}</Button>}>
+      <Field label={t("common.phone")}><Input id="evc-phone" type="tel" value={phone} onChange={(x) => setPhone(x.target.value)} autoComplete="tel" /></Field>
+      <Field label={t("common.code")} hint={t("ev.codeHint")}><Input id="evc-code" numeric inputMode="numeric" maxLength={6} value={code} onChange={(x) => setCode(x.target.value.replace(/\D/g, ""))} /></Field>
+      {error ? <p className="text-busy font-semibold text-sm">{error}</p> : null}
+    </Sheet>
   );
 }
 
@@ -157,10 +207,11 @@ function SignUpSheet({ e, onClose, onDone }: { e: PublicEvent; onClose: () => vo
     setBusy(true);
     setError(null);
     try {
-      await rpc("customer_event_signup", { p_event: e.id, p_phone: normalizePhone(phone), p_name: name.trim(), p_seats: seats, p_note: note.trim(), p_offers: offers });
+      const r = await rpc<{ customer_code: string | null }>("customer_event_signup", { p_event: e.id, p_phone: normalizePhone(phone), p_name: name.trim(), p_seats: seats, p_note: note.trim(), p_offers: offers });
       const prev = getIdentity();
-      setIdentity({ ...prev, phone: normalizePhone(phone), name: name.trim(), code: prev.phone === normalizePhone(phone) ? prev.code : "" });
-      toast(t("ev.done"));
+      const code = r.customer_code ?? (prev.phone === normalizePhone(phone) ? prev.code : "");
+      setIdentity({ ...prev, phone: normalizePhone(phone), name: name.trim(), code });
+      toast(r.customer_code ? t("ev.doneCode", { code: r.customer_code }) : t("ev.done"));
       onDone(seats);
     } catch (err) {
       setError(errText(isNetworkError(err) ? "network" : errorCode(err)));

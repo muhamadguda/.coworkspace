@@ -213,6 +213,8 @@ export function Reports() {
         </>
       ) : !busy ? <Empty>{t("rp.empty")}</Empty> : null}
 
+      <CallsAndChecks key={`${from}:${to}`} from={from} to={to} />
+
       <Card className="p-4 grid gap-2">
         <h3 className="font-semibold">{t("rp.health")}</h3>
         {errors === null ? <Spinner /> : errors.length === 0 ? (
@@ -254,5 +256,51 @@ function Tr({ cells, strong, tone }: { cells: string[]; strong?: boolean; tone?:
     <tr className={cx(strong && "font-bold", tone === "busy" && "text-busy")}>
       {cells.map((c, i) => <td key={i} className={cx("py-1.5 pe-3 align-top", i === cells.length - 1 && "text-end num whitespace-nowrap")}>{c}</td>)}
     </tr>
+  );
+}
+
+type CallsReport = { total: number; answered: number; missed: number; avg_seconds: number; by_staff: { name: string; answered: number; avg_seconds: number }[]; by_reason: Record<string, number> };
+type FeeCheck = { session_id: string; charged: number; expected: number; diff: number; at: string; place_ar: string; place_en: string; by: string | null };
+
+/** Staff attentiveness (calls answered within 15 minutes) and room fees the server disagreed with. */
+function CallsAndChecks({ from, to }: { from: string; to: string }) {
+  const { t, money, time, lang } = useI18n();
+  const [calls, setCalls] = useState<CallsReport | null>(null);
+  const [checks, setChecks] = useState<FeeCheck[] | null>(null);
+  useEffect(() => {
+    rpc<CallsReport>("owner_calls_report", { p_from: from, p_to: to }).then(setCalls).catch(() => setCalls(null));
+    rpc<FeeCheck[]>("owner_fee_checks", { p_from: from, p_to: to }).then(setChecks).catch(() => setChecks([]));
+  }, [from, to]);
+  const secs = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : `0:${String(Math.round(s)).padStart(2, "0")}`);
+  const pct = calls && calls.total ? Math.round((calls.answered / calls.total) * 100) : null;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card className="p-4 grid gap-2">
+        <h3 className="font-semibold">{t("rp.calls")}</h3>
+        {!calls ? <Spinner /> : !calls.total ? <p className="text-sm text-muted">{t("rp.empty")}</p> : (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid"><span className="num text-2xl font-bold">{calls.total}</span><span className="text-xs text-muted">{t("rp.callsTotal")}</span></div>
+              <div className="grid"><span className={cx("num text-2xl font-bold", pct != null && pct < 80 ? "text-busy" : "text-free")}>{pct}%</span><span className="text-xs text-muted">{t("rp.callsAnswered")}</span></div>
+              <div className="grid"><span className="num text-2xl font-bold" dir="ltr">{secs(calls.avg_seconds)}</span><span className="text-xs text-muted">{t("rp.callsAvg")}</span></div>
+            </div>
+            {calls.missed ? <p className="text-sm font-semibold text-busy">{t("rp.callsMissed", { n: calls.missed })}</p> : null}
+            <table className="w-full text-sm"><tbody className="divide-y-2 divide-line">
+              {calls.by_staff.map((r) => <Tr key={r.name} cells={[r.name, `${r.answered}`, secs(r.avg_seconds)]} />)}
+            </tbody></table>
+          </>
+        )}
+        <p className="text-xs text-muted">{t("rp.callsHint")}</p>
+      </Card>
+      <Card className="p-4 grid gap-2">
+        <h3 className="font-semibold">{t("rp.feeChecks")}</h3>
+        {checks === null ? <Spinner /> : !checks.length ? <p className="text-sm text-free font-semibold">{t("rp.feeChecksOk")}</p> : (
+          <table className="w-full text-sm"><tbody className="divide-y-2 divide-line">
+            {checks.map((c) => <Tr key={c.session_id} tone="busy" cells={[`${new Date(c.at).toLocaleDateString("en-GB")} ${time(c.at)}`, lang === "ar" ? c.place_ar : c.place_en, c.by ?? "—", `${money(c.charged)} / ${money(c.expected)}`]} />)}
+          </tbody></table>
+        )}
+        <p className="text-xs text-muted">{t("rp.feeChecksHint")}</p>
+      </Card>
+    </div>
   );
 }

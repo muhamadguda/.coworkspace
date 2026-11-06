@@ -42,6 +42,16 @@ export function billRunningTotal(s: Snapshot, bill: Bill, now: Date) {
   return round2(billItemsTotal(s, bill.id) + billRoomAmount(s, bill, now).amount);
 }
 
+/** Cash to carry into a new business day: yesterday's counted close, or what the drawer should hold. Null if there's no earlier day. */
+export function carriedFloat(s: Snapshot, day: string): number | null {
+  const prev = [s.cash_day, s.last_cash_day].filter((d): d is NonNullable<typeof d> => !!d && d.business_day < day).sort((a, b) => b.business_day.localeCompare(a.business_day))[0];
+  if (!prev) return null;
+  if (prev.closing_counted != null) return prev.closing_counted;
+  const cashIn = s.payments.filter((p) => p.business_day === prev.business_day && p.method === "cash" && !p.voided_at).reduce((a, p) => a + p.amount, 0);
+  const out = s.cash_outs.filter((c) => c.business_day === prev.business_day).reduce((a, c) => a + c.amount, 0);
+  return round2(prev.opening_float + cashIn - out);
+}
+
 export const currentBusinessDay = (s: Snapshot, now = new Date()) => businessDay(now, s.settings.day_rollover_hour);
 
 export function dayStats(s: Snapshot, day: string) {

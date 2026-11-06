@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { useI18n, formatClock } from "@/lib/i18n";
 import { bundleCredit, round2, splitEqual } from "@/lib/billing";
-import { modeFits, rateFor } from "@/lib/pricing";
+import { isOpenBooking, modeFits, rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, Sheet, Toggle, cx } from "@/components/ui";
 import { activeBundlesOf, billsInSession, customerById, fmtHours, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
-import { dispatch, uuid } from "../store";
+import { dispatch, serverNow, uuid } from "../store";
 import { useNow, useSnap } from "../hooks";
 import { CustomerPicker } from "./CustomerPicker";
 
@@ -23,7 +23,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
   const [customerId, setCustomerId] = useState<string | undefined>(initial?.customer_id ?? presetCustomer);
   const [bookingId, setBookingId] = useState<string>(presetBooking ?? "");
   const [modeId, setModeId] = useState(initial?.mode_id ?? modes[0]?.id ?? "");
-  const [kind, setKind] = useState<"open" | "fixed">(initial ? "fixed" : "open");
+  const [kind, setKind] = useState<"open" | "fixed">(initial && !isOpenBooking(initial) ? "fixed" : "open");
   const [minutes, setMinutes] = useState(initial?.duration_minutes ?? 60);
   const [group, setGroup] = useState(initial?.group_size ? String(initial.group_size) : "");
 
@@ -33,8 +33,8 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
     if (!b) return;
     setCustomerId(b.customer_id);
     setModeId(b.mode_id);
-    setKind("fixed");
-    setMinutes(b.duration_minutes);
+    setKind(isOpenBooking(b) ? "open" : "fixed");
+    setMinutes(isOpenBooking(b) ? 60 : b.duration_minutes);
     if (b.group_size) setGroup(String(b.group_size));
   }
 
@@ -52,7 +52,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
     const existing = openBillOfCustomer(snap, customerId);
     dispatch("start_session", {
       id: uuid(), place_id: place.id, customer_id: customerId, bill_id: existing?.id ?? uuid(), mode_id: modeId, kind,
-      planned_end: kind === "fixed" ? new Date(Date.now() + minutes * 60000).toISOString() : null,
+      planned_end: kind === "fixed" ? new Date(serverNow().getTime() + minutes * 60000).toISOString() : null,
       group_size: isArea ? null : group ? Number(group) : null, booking_id: bookingId || null, segment_id: uuid(),
     });
     onClose();
@@ -66,7 +66,7 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
           <Select id="ss-booking" value={bookingId} onChange={(e) => pickBooking(e.target.value)}>
             <option value="">{t("ss.noBooking")}</option>
             {bookings.map((b) => (
-              <option key={b.id} value={b.id}>{time(b.starts_at)} · {customerById(snap, b.customer_id)?.name || customerById(snap, b.customer_id)?.phone} · {dur(b.duration_minutes)}</option>
+              <option key={b.id} value={b.id}>{time(b.starts_at)} · {customerById(snap, b.customer_id)?.name || customerById(snap, b.customer_id)?.phone} · {isOpenBooking(b) ? t("bk.openEnded") : dur(b.duration_minutes)}</option>
             ))}
           </Select>
         </Field>

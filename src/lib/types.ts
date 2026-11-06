@@ -199,6 +199,7 @@ export type Booking = {
   source: "customer" | "staff";
   session_id: string | null;
   created_at: string;
+  open_ended?: boolean;
 };
 
 export type CashDay = {

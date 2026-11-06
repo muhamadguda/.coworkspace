@@ -257,7 +257,7 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
         ...s,
         bookings: [...s.bookings, {
           id: p.id, customer_id: resolveCustomer(s, p.customer_id), place_id: p.place_id, mode_id: p.mode_id, starts_at: p.starts_at, duration_minutes: p.duration_minutes,
-          group_size: p.group_size ?? null, note: p.note ?? "", status: "confirmed", source: "staff", session_id: null, created_at: at,
+          group_size: p.group_size ?? null, note: p.note ?? "", status: "confirmed", source: "staff", session_id: null, created_at: at, open_ended: !!p.open_ended,
         }],
       };
     case "edit_item": {

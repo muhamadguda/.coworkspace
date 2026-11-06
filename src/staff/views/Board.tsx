@@ -6,7 +6,7 @@ import { modeFits, rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, StatusDot, cx } from "@/components/ui";
 import { activeSessionAt, activeSessionsAt, billRunningTotal, billsAtPlace, billsInSession, customerById, liveRoomFee, segmentsOf, upcomingBookingFor } from "../derive";
-import { dispatch, uuid } from "../store";
+import { dispatch, serverNow, uuid } from "../store";
 import { useNow, useSnap } from "../hooks";
 import { BillCard } from "../components/BillCard";
 import { CustomerPicker } from "../components/CustomerPicker";
@@ -279,7 +279,7 @@ function SessionControls({ session, onEnd }: { session: Session; onEnd: () => vo
   const bills = billsInSession(snap, session.id);
   const booker = customerById(snap, session.booker_customer_id);
   const extend = (min: number) => {
-    const base = session.kind === "fixed" && session.planned_end ? Math.max(Date.parse(session.planned_end), Date.now()) : Date.now();
+    const base = session.kind === "fixed" && session.planned_end ? Math.max(Date.parse(session.planned_end), serverNow().getTime()) : serverNow().getTime();
     dispatch("update_session", { session_id: session.id, kind: "fixed", planned_end: new Date(base + min * 60000).toISOString() });
   };
 

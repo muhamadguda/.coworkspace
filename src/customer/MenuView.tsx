@@ -7,7 +7,7 @@ import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { round2 } from "@/lib/billing";
 import type { CartLine, Catalog, ChosenOption, MenuItem, OrderStatus } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, Sheet, Textarea, cx, useToast } from "@/components/ui";
-import { addMyOrder, getIdentity, getMyOrders, setIdentity, type QrPlace } from "./local";
+import { addMyOrder, getIdentity, getMyOrders, setIdentity, setQrPlace, type QrPlace } from "./local";
 import { NotifyButton } from "@/components/NotifyButton";
 
 export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; place: QrPlace | null; onRefresh: () => void }) {
@@ -142,20 +142,29 @@ function CallStaff({ place }: { place: QrPlace }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  const [gone, setGone] = useState(false);
   async function call(reason: (typeof CALL_REASONS)[number]) {
     setBusy(reason);
     try {
-      await rpc("customer_call_staff", { p_token: place.token, p_reason: reason });
+      await rpc("customer_call_staff2", { p_token: place.token, p_reason: reason, p_phone: getIdentity().phone || null });
       setRecent((m) => [...m, reason]);
       setTimeout(() => setRecent((m) => m.filter((x) => x !== reason)), 60_000);
       toast(t("call.sent"));
       setOpen(false);
     } catch (e) {
-      toast(isNetworkError(e) ? t("err.network") : errText(errorCode(e)), "error");
+      const code = errorCode(e);
+      toast(isNetworkError(e) ? t("err.network") : errText(code), "error");
+      // Checked out and left: forget this table so the button goes away.
+      if (code === "checked_out") {
+        setQrPlace(null);
+        setOpen(false);
+        setGone(true);
+      }
     } finally {
       setBusy(null);
     }
   }
+  if (gone) return null;
   return (
     <>
       <div className="flex items-center justify-between gap-3 rounded-[2px] border-2 border-line bg-surface px-3 py-2">

@@ -183,6 +183,10 @@ export async function refresh() {
   const startedAt = Date.now();
   try {
     const snap = await rpc<Snapshot>("staff_snapshot2");
+    // The device's clock can be wrong. Measure it against the server (halfway through the request) and
+    // use the corrected time for every op and every timer, so fees don't depend on a tablet's clock.
+    const serverMs = Date.parse(snap.server_time);
+    if (Number.isFinite(serverMs)) clockOffset = serverMs - (startedAt + Date.now()) / 2;
     // Drop ops the server confirmed before this snapshot was taken.
     const queue = state.queue.filter((q) => q.state === "pending" || (q.sentAt ?? 0) > startedAt);
     set({ base: snap, queue, online: true, lastSyncAt: Date.now() });
@@ -217,7 +221,7 @@ async function flush() {
       if (!next) break;
       const { state: _s, sentAt: _a, by: _b, ...op } = next;
       try {
-        await rpc("staff_op4", { op });
+        await rpc("staff_op5", { op });
         set({ queue: state.queue.map((q) => (q.id === next.id ? { ...q, state: "sent" as const, sentAt: Date.now() } : q)), online: true });
       } catch (e) {
         if (isAuthError(e) && errorCode(e) !== "bad_owner_credentials") {
@@ -246,11 +250,15 @@ export function dismissFailed(i: number) {
 }
 
 // ---------------------------------------------------------------- actions
+let clockOffset = 0;
+/** Now, on the server's clock (falls back to the device clock until the first snapshot). */
+export const serverNow = () => new Date(Date.now() + clockOffset);
+
 export const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16)));
 
 /** Queue an op (works offline). Returns the op id. */
 export function dispatch(type: OpType, payload: Record<string, unknown>): string {
-  const op: QueuedOp = { id: uuid(), type, at: new Date().toISOString(), payload, state: "pending", by: state.base?.me.user_id };
+  const op: QueuedOp = { id: uuid(), type, at: serverNow().toISOString(), payload, state: "pending", by: state.base?.me.user_id };
   set({ queue: [...state.queue, op] });
   void flush();
   return op.id;
@@ -259,7 +267,7 @@ export function dispatch(type: OpType, payload: Record<string, unknown>): string
 /** Send an op that must reach the server now (owner override). Throws on failure. */
 export async function dispatchOnline(type: OpType, payload: Record<string, unknown>, override?: { phone: string; password: string }) {
   if (state.queue.some((q) => q.state === "pending")) await flush();
-  const op = { id: uuid(), type, at: new Date().toISOString(), payload, override };
-  await rpc("staff_op4", { op });
+  const op = { id: uuid(), type, at: serverNow().toISOString(), payload, override };
+  await rpc("staff_op5", { op });
   await refresh();
 }

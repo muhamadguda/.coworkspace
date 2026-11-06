@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useStaff } from "./store";
+import { serverNow, useStaff } from "./store";
 import type { Snapshot } from "@/lib/types";
 
 export function useNow(ms = 1000) {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), ms);
+    const id = setInterval(() => setNow(serverNow()), ms);
     return () => clearInterval(id);
   }, [ms]);
   return now;

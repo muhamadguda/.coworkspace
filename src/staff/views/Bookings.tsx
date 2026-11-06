@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
-import { modeFits, rateFor } from "@/lib/pricing";
+import { isOpenBooking, modeFits, rateFor } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
 import { openWhatsApp } from "@/lib/phone";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Select, Sheet, Textarea } from "@/components/ui";
@@ -58,13 +58,13 @@ function BookingCard({ b }: { b: Booking }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="grid">
           <span className="font-display text-xl font-bold">{n(place)} · {n(mode)}</span>
-          <span className="text-sm">{dateTime(b.starts_at)} · {dur(b.duration_minutes)}{b.group_size ? ` · ${t("common.people", { n: b.group_size })}` : ""}</span>
+          <span className="text-sm">{dateTime(b.starts_at)} · {isOpenBooking(b) ? t("bk.openEnded") : dur(b.duration_minutes)}{b.group_size ? ` · ${t("common.people", { n: b.group_size })}` : ""}</span>
         </div>
         <Pill tone={b.status === "pending" ? "warn" : "free"}>{b.status === "pending" ? t("c.book.status.pending") : t("c.book.status.confirmed")}</Pill>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>{c?.name || "—"} <span className="num text-muted">{c?.phone}</span></span>
-        {mode ? <span className="num text-muted">≈ {money((rateFor(snap.modes, snap.mode_prices, b.place_id, mode.id) * b.duration_minutes) / 60)}</span> : null}
+        {mode && !isOpenBooking(b) ? <span className="num text-muted">≈ {money((rateFor(snap.modes, snap.mode_prices, b.place_id, mode.id) * b.duration_minutes) / 60)}</span> : null}
       </div>
       {b.note ? <p className="text-sm text-muted">{b.note}</p> : null}
       <div className="flex flex-wrap gap-1.5">
@@ -80,7 +80,7 @@ function BookingCard({ b }: { b: Booking }) {
             <Button size="sm" variant="accent" disabled={busy} onClick={() => window.dispatchEvent(new CustomEvent("dot:start-session", { detail: { placeId: b.place_id, customerId: b.customer_id, bookingId: b.id } }))}>
               {t("bk.start")}
             </Button>
-            {c?.phone ? <Button size="sm" onClick={() => openWhatsApp(c.phone, t("wa.msgConfirm", { name: c.name ? ` ${c.name}` : "", place: n(place), when: dateTime(b.starts_at), dur: dur(b.duration_minutes) }))}>{t("wa.confirm")}</Button> : null}
+            {c?.phone ? <Button size="sm" onClick={() => openWhatsApp(c.phone, t("wa.msgConfirm", { name: c.name ? ` ${c.name}` : "", place: n(place), when: dateTime(b.starts_at), dur: isOpenBooking(b) ? t("bk.openEnded") : dur(b.duration_minutes) }))}>{t("wa.confirm")}</Button> : null}
             <Button size="sm" onClick={() => dispatch("booking_decide", { booking_id: b.id, status: "no_show" })}>{t("bk.noShow")}</Button>
             <Button size="sm" variant="ghost" onClick={() => dispatch("booking_decide", { booking_id: b.id, status: "cancelled" })}>{t("common.cancel")}</Button>
           </>
@@ -106,7 +106,7 @@ function NewBooking({ onClose }: { onClose: () => void }) {
 
   function create() {
     if (!customerId || !when) return;
-    dispatch("booking_create", { id: uuid(), customer_id: customerId, place_id: placeId, mode_id: modeId, starts_at: cairoLocalToIso(when), duration_minutes: Number(duration), group_size: group ? Number(group) : null, note: note.trim() });
+    dispatch("booking_create", { id: uuid(), customer_id: customerId, place_id: placeId, mode_id: modeId, starts_at: cairoLocalToIso(when), duration_minutes: duration === "open" ? 720 : Number(duration), open_ended: duration === "open", group_size: group ? Number(group) : null, note: note.trim() });
     onClose();
   }
 
@@ -132,6 +132,7 @@ function NewBooking({ onClose }: { onClose: () => void }) {
         </Field>
         <Field label={t("c.book.duration")}>
           <Select id="bk-duration" value={duration} onChange={(e) => setDuration(e.target.value)}>
+            <option value="open">{t("bk.openEnded")}</option>
             {[60, 90, 120, 180, 240, 300, 360, 480].map((m) => <option key={m} value={m}>{dur(m)}</option>)}
           </Select>
         </Field>

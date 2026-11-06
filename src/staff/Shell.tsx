@@ -8,7 +8,7 @@ import { round2 } from "@/lib/billing";
 import { Button, Card, Field, Input, LangSwitch, Logo, Pill, Sheet, cx, useToast } from "@/components/ui";
 import { AlertBar, useAlerts } from "./alerts";
 import { audioReady, keepAwake, unlockAudio } from "./alarm";
-import { currentBusinessDay } from "./derive";
+import { carriedFloat, currentBusinessDay } from "./derive";
 import { clearLocal, dismissFailed, dispatch, getState, stopStore, useStaff } from "./store";
 import { useIsOwner, useNow, useSnap } from "./hooks";
 import { Board, type StartPreset } from "./views/Board";
@@ -57,8 +57,19 @@ export function Shell() {
   const { alerts, muted, mute, unmute } = useAlerts(goto);
   const day = currentBusinessDay(snap, useNow(30000));
   const dayOpen = snap.cash_day?.business_day === day;
+  const toast = useToast();
+  // Open 24/7: when the business day changes mid-shift, start the new day by itself with the drawer
+  // carried over, instead of locking the counter behind "Start day". Idempotent on the server.
+  useEffect(() => {
+    if (!shiftStarted || dayOpen) return;
+    const float = carriedFloat(snap, day);
+    if (float == null) return;
+    dispatch("open_day", { opening_float: float });
+    toast(t("s.dayRolled", { day }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shiftStarted, dayOpen, day]);
 
-  if (!shiftStarted || !dayOpen) return <ShiftGate dayOpen={dayOpen} onStarted={() => setShiftStarted(true)} />;
+  if (!shiftStarted || (!dayOpen && carriedFloat(snap, day) == null)) return <ShiftGate dayOpen={dayOpen} onStarted={() => setShiftStarted(true)} />;
 
   const newCount = snap.orders.filter((o) => o.status === "new").length;
   const pendingBookings = snap.bookings.filter((b) => b.status === "pending").length;
