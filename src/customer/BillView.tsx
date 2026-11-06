@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
-import { bundleCredit, computeRoomFee, round2, type FeeSettings } from "@/lib/billing";
+import { bundleCredit, computeRoomFee, happyNow, round2, type FeeSettings, type HappyHour } from "@/lib/billing";
+import { wifiQrText } from "@/lib/dotqr";
+import { DotQR } from "@/components/DotQR";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import type { ChosenOption, OrderStatus } from "@/lib/types";
-import { Button, Card, Empty, Field, Input, Pill, SectionTitle } from "@/components/ui";
+import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Toggle, useToast } from "@/components/ui";
 import { getIdentity, setIdentity } from "./local";
 
 type BillData = {
@@ -17,7 +19,7 @@ type BillData = {
     id: string;
     opened_at: string;
     room_fee_share: number;
-    place: { kind: "room" | "table"; name_ar: string; name_en: string } | null;
+    place: { kind: "room" | "table" | "area"; name_ar: string; name_en: string } | null;
     orders: { id: string; status: OrderStatus; created_at: string; items: { name_ar: string; name_en: string; qty: number; unit_price: number; options: ChosenOption[] }[] }[];
     session: null | {
       id: string; kind: "open" | "fixed"; planned_end: string | null; status: "active" | "ended"; started_at: string; ended_at: string | null; room_fee: number | null; is_booker: boolean; members: number;
@@ -28,6 +30,10 @@ type BillData = {
   bundles?: { name_ar: string; name_en: string; minutes_left: number; expires_at: string; mode_id: string | null; source: "purchase" | "loyalty" }[];
   loyalty?: { visits: number; every: number; reward_minutes: number };
   review_url?: string;
+  wifi?: { ssid: string; password: string } | null;
+  instapay_link?: string | null;
+  happy_hours?: HappyHour[];
+  offers_opt_in?: boolean;
 };
 
 export function BillView() {
@@ -43,7 +49,7 @@ export function BillView() {
   const load = useCallback(async (p: string, c: string, quiet = false) => {
     if (!quiet) setBusy(true);
     try {
-      const res = await rpc<BillData>("customer_bill2", { p_phone: normalizePhone(p), p_code: c.trim() });
+      const res = await rpc<BillData>("customer_bill3", { p_phone: normalizePhone(p), p_code: c.trim() });
       setData(res);
       setError(null);
       const prev = getIdentity();
@@ -58,7 +64,7 @@ export function BillView() {
   useEffect(() => {
     const me = getIdentity();
     if (me.phone && me.code) {
-      rpc<BillData>("customer_bill2", { p_phone: me.phone, p_code: me.code })
+      rpc<BillData>("customer_bill3", { p_phone: me.phone, p_code: me.code })
         .then(setData)
         .catch(() => {});
     }
@@ -112,8 +118,9 @@ export function BillView() {
   );
   const s = b?.session;
   const fee = s && s.status === "active" && s.is_booker
-    ? computeRoomFee({ segments: s.segments, kind: s.kind, plannedEnd: s.planned_end, end: now, settings: data.settings, chargeOverstay: false })
+    ? computeRoomFee({ segments: s.segments, kind: s.kind, plannedEnd: s.planned_end, end: now, settings: data.settings, chargeOverstay: false, happy: { hours: data.happy_hours ?? [], placeKind: b?.place?.kind ?? "room" } })
     : null;
+  const happy = s && s.status === "active" ? happyNow(data.happy_hours ?? [], b?.place?.kind ?? "room", now.getTime()).filter((h) => !h.mode_id || h.mode_id === s.segments.at(-1)?.mode_id) : [];
   const bundle = s && s.is_booker ? (data.bundles ?? []).find((x) => !x.mode_id || s.segments.some((g) => g.mode_id === x.mode_id)) : undefined;
   const credit = fee && bundle ? bundleCredit(fee, bundle.minutes_left, bundle.mode_id) : null;
   const liveFee = fee ? round2(fee.fee - (credit?.amount ?? 0)) : 0;
@@ -149,6 +156,7 @@ export function BillView() {
                 <span className="font-semibold">{t("c.roomTime")}</span>
                 {s.status === "active" ? <Pill tone="busy">{dur((now.getTime() - Date.parse(s.started_at)) / 60000)}</Pill> : null}
               </div>
+              {happy.length ? <Pill tone="free" className="justify-self-start">{t("hh.now", { p: Math.max(...happy.map((h) => h.percent_off)) })}</Pill> : null}
               {s.segments.map((g, i) => (
                 <div key={i} className="text-sm flex justify-between gap-2">
                   <span>{lang === "ar" ? g.name_ar : g.name_en}</span>
@@ -189,10 +197,24 @@ export function BillView() {
           <div className="grid gap-1">
             <Row label={t("c.itemsTotal")} value={money(itemsTotal)} />
             {s ? <Row label={t("c.roomTime")} value={money(roomAmount)} /> : null}
+            {fee && fee.happyOff > 0 ? <Row label={t("hh.saved")} value={`−${money(fee.happyOff)}`} /> : null}
             <Row label={s?.status === "active" ? t("c.estimatedTotal") : t("common.total")} value={money(total)} strong />
           </div>
         </Card>
       )}
+
+      {data.instapay_link && (total > 0 || data.outstanding > 0) ? (
+        <Card className="p-4 grid gap-3 sm:grid-cols-[auto_1fr] items-center">
+          <DotQR value={data.instapay_link} label="InstaPay" className="w-40 justify-self-center" />
+          <div className="grid gap-2">
+            <span className="font-display text-xl font-bold">{t("pay.title")}</span>
+            <span className="text-sm text-muted">{t("pay.lead")}</span>
+            <a href={data.instapay_link} target="_blank" rel="noreferrer" className="justify-self-start inline-flex items-center h-11 px-4 rounded-[2px] border-2 border-strong bg-strong text-bg font-semibold">{t("pay.open")}</a>
+          </div>
+        </Card>
+      ) : null}
+
+      {data.wifi ? <WifiCard ssid={data.wifi.ssid} password={data.wifi.password} /> : null}
 
       {(data.bundles ?? []).length ? (
         <Card className="p-4 grid gap-2">
@@ -246,10 +268,73 @@ export function BillView() {
         </section>
       ) : null}
       {error ? <p className="text-busy font-semibold text-sm">{error}</p> : null}
+      <OffersToggle phone={data.customer.phone} code={data.customer.code} initial={!!data.offers_opt_in} />
       {data.review_url ? (
         <a href={data.review_url} target="_blank" rel="noreferrer" className="justify-self-center text-sm font-semibold underline underline-offset-4">★ {t("c.reviewUs")}</a>
       ) : null}
     </div>
+  );
+}
+
+function WifiCard({ ssid, password }: { ssid: string; password: string }) {
+  const { t } = useI18n();
+  const toast = useToast();
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(password);
+      toast(t("wifi.copied"));
+    } catch {}
+  }
+  return (
+    <Card className="p-4 grid gap-3 sm:grid-cols-[auto_1fr] items-center">
+      <DotQR value={wifiQrText(ssid, password)} label="Wi-Fi" className="w-40 justify-self-center" />
+      <div className="grid gap-1">
+        <span className="font-display text-xl font-bold">{t("wifi.title")}</span>
+        <span className="text-sm text-muted">{t("wifi.lead")}</span>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm mt-1">
+          <dt className="text-muted">{t("wifi.network")}</dt>
+          <dd className="font-semibold break-all" dir="ltr">{ssid}</dd>
+          {password ? (
+            <>
+              <dt className="text-muted">{t("wifi.password")}</dt>
+              <dd className="font-semibold break-all flex items-center gap-2" dir="ltr">
+                <span>{password}</span>
+                <button type="button" onClick={copy} className="text-xs underline underline-offset-2">{t("wifi.copy")}</button>
+              </dd>
+            </>
+          ) : null}
+        </dl>
+      </div>
+    </Card>
+  );
+}
+
+/** WhatsApp offers: the customer says yes or no here; the owner exports only the yeses. */
+function OffersToggle({ phone, code, initial }: { phone: string; code: string; initial: boolean }) {
+  const { t } = useI18n();
+  const errText = useErrorText();
+  const toast = useToast();
+  const [on, setOn] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  async function change(v: boolean) {
+    setBusy(true);
+    setOn(v);
+    try {
+      const r = await rpc<{ error?: string }>("customer_set_offers", { p_phone: phone, p_code: code, p_on: v });
+      if (r?.error) throw new Error(r.error);
+      toast(v ? t("of.on") : t("of.off"));
+    } catch (e) {
+      setOn(!v);
+      toast(errText(isNetworkError(e) ? "network" : errorCode(e)), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card className="p-4 grid gap-1" aria-busy={busy}>
+      <Toggle checked={on} onChange={(v) => !busy && change(v)} label={t("of.label")} />
+      <span className="text-xs text-muted">{t("of.hint")}</span>
+    </Card>
   );
 }
 

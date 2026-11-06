@@ -39,8 +39,13 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
   }
 
   const cust = customerId ? customerById(snap, customerId) : undefined;
-  const next = upcomingBookingFor(snap, place.id, now, 6 * 60);
+  const isArea = place.kind === "area";
+  const next = isArea ? undefined : upcomingBookingFor(snap, place.id, now, 6 * 60);
   const nextIsOther = next && next.id !== bookingId;
+  const here = isArea ? snap.sessions.filter((x) => x.place_id === place.id && x.status === "active") : [];
+  const alreadyHere = !!customerId && here.some((x) => x.booker_customer_id === (snap.aliases?.[customerId] ?? customerId));
+  const full = isArea && place.capacity != null && here.length >= place.capacity;
+  const running = customerId ? snap.sessions.find((x) => x.status === "active" && x.booker_customer_id === (snap.aliases?.[customerId] ?? customerId)) : undefined;
 
   function start() {
     if (!customerId) return;
@@ -48,14 +53,14 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
     dispatch("start_session", {
       id: uuid(), place_id: place.id, customer_id: customerId, bill_id: existing?.id ?? uuid(), mode_id: modeId, kind,
       planned_end: kind === "fixed" ? new Date(Date.now() + minutes * 60000).toISOString() : null,
-      group_size: group ? Number(group) : null, booking_id: bookingId || null, segment_id: uuid(),
+      group_size: isArea ? null : group ? Number(group) : null, booking_id: bookingId || null, segment_id: uuid(),
     });
     onClose();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={`${t("ss.start")} · ${n(place)}`} footer={<Button variant="accent" size="lg" disabled={!customerId || !modeId} onClick={start}>{t("ss.start")}</Button>}>
-      {bookings.length ? (
+    <Sheet open={open} onClose={onClose} title={`${t("ss.start")} · ${n(place)}`} footer={<Button variant="accent" size="lg" disabled={!customerId || !modeId || full || alreadyHere || (isArea && !!running)} onClick={start}>{t("ss.start")}</Button>}>
+      {!isArea && bookings.length ? (
         <Field label={t("ss.fromBooking")}>
           <Select id="ss-booking" value={bookingId} onChange={(e) => pickBooking(e.target.value)}>
             <option value="">{t("ss.noBooking")}</option>
@@ -69,14 +74,17 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
       {cust ? (
         <Card className="p-3 flex items-center justify-between gap-2">
           <div className="grid">
-            <span className="text-xs text-muted">{t("ss.booker")}</span>
+            <span className="text-xs text-muted">{isArea ? t("ar.person") : t("ss.booker")}</span>
             <span className="font-semibold">{cust.name || "—"} <span className="num text-sm text-muted">{cust.phone}</span></span>
           </div>
           <Button size="sm" variant="ghost" onClick={() => setCustomerId(undefined)}>{t("common.edit")}</Button>
         </Card>
       ) : (
-        <CustomerPicker label={t("ss.booker")} onPick={setCustomerId} />
+        <CustomerPicker label={isArea ? t("ar.person") : t("ss.booker")} onPick={setCustomerId} />
       )}
+      {alreadyHere ? <p className="text-sm font-semibold text-busy border-s-4 border-busy ps-2">{t("ar.alreadyHere")}</p> : null}
+      {isArea && !alreadyHere && running ? <p className="text-sm font-semibold text-warn border-s-4 border-warn ps-2">{t("ar.timerElsewhere", { place: n(placeById(snap, running.place_id)) })}</p> : null}
+      {full ? <p className="text-sm font-semibold text-busy border-s-4 border-busy ps-2">{t("ar.fullNote")}</p> : null}
 
       <Field group label={t("ss.mode")}>
         <Segmented value={modeId} onChange={setModeId} options={modes.map((m) => ({ value: m.id, label: <span>{n(m)} · <span className="num">{money(rateFor(snap.modes, snap.mode_prices, place.id, m.id))}</span></span> }))} />
@@ -96,9 +104,11 @@ export function StartSessionSheet({ place, open, onClose, presetCustomer, preset
           </div>
         </Field>
       ) : null}
-      <Field label={t("ss.group")}>
-        <Input id="ss-group" numeric inputMode="numeric" value={group} onChange={(e) => setGroup(e.target.value.replace(/\D/g, "").slice(0, 3))} />
-      </Field>
+      {!isArea ? (
+        <Field label={t("ss.group")}>
+          <Input id="ss-group" numeric inputMode="numeric" value={group} onChange={(e) => setGroup(e.target.value.replace(/\D/g, "").slice(0, 3))} />
+        </Field>
+      ) : null}
       {nextIsOther ? <p className="text-sm font-semibold text-warn border-s-4 border-warn ps-2">{t("ss.bookingWarning", { time: time(next!.starts_at), n: snap.settings.booking_warning_minutes })}</p> : null}
     </Sheet>
   );
@@ -143,13 +153,19 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
         {fee.lines.map((l, i) => (
           <div key={i} className="flex justify-between gap-2">
             <span>{n(snap.modes.find((m) => m.id === l.mode_id))} · <span className="num">{formatClock(l.minutes)}</span> × <span className="num">{money(l.rate)}</span></span>
-            <span className="num">{money(l.amount)}</span>
+            <span className="num">{money(round2(l.amount + (l.off ?? 0)))}</span>
           </div>
         ))}
         {fee.extraMinutes > 0.01 ? (
           <div className="flex justify-between gap-2 text-muted">
             <span>{t("ss.minimumOrRounding")} · <span className="num">{formatClock(fee.extraMinutes)}</span></span>
-            <span className="num">{money(fee.extraAmount)}</span>
+            <span className="num">{money(round2((fee.extraMinutes * fee.extraRate) / 60))}</span>
+          </div>
+        ) : null}
+        {fee.happyOff > 0 ? (
+          <div className="flex justify-between gap-2 font-semibold text-free">
+            <span>{t("hh.title")}</span>
+            <span className="num">−{money(fee.happyOff)}</span>
           </div>
         ) : null}
         <div className="flex justify-between gap-2 font-bold border-t-2 border-strong pt-1 mt-1">

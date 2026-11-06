@@ -1,5 +1,8 @@
 // Row shapes as returned by staff_snapshot() / public_catalog(). Numeric columns arrive as JSON numbers.
 
+import type { HappyHour } from "./billing";
+export type { HappyHour };
+
 export type Lang = "ar" | "en";
 export type Role = "owner" | "staff";
 export type PayMethod = "cash" | "instapay" | "vf_cash";
@@ -21,16 +24,20 @@ export type Settings = {
   google_review_url?: string;
   loyalty_every?: number;
   loyalty_reward_minutes?: number;
+  wifi_ssid?: string;
+  wifi_password?: string;
+  instapay_link?: string;
   updated_at?: string;
 };
 
 export type Place = {
   id: string;
-  kind: "room" | "table";
+  kind: "room" | "table" | "area";
   name_ar: string;
   name_en: string;
   sort: number;
   active: boolean;
+  capacity?: number | null; // shared areas: seats
   qr_token?: string;
   busy?: boolean;
 };
@@ -89,6 +96,7 @@ export type Customer = {
   debt_limit: number;
   outstanding: number;
   created_at?: string;
+  offers_opt_in?: boolean;
 };
 
 export type Session = {
@@ -235,6 +243,25 @@ export type Snapshot = {
   bundle_uses?: BundleUse[];
   stock_moves?: StockMove[];
   visits?: Record<string, number>;
+  happy_hours?: HappyHour[];
+  staff_calls?: StaffCall[];
+};
+
+export type StaffCall = { id: string; place_id: string; reason: "help" | "water" | "bill"; created_at: string; handled_at: string | null; handled_by: string | null };
+
+export type PublicEvent = {
+  id: string;
+  title_ar: string;
+  title_en: string;
+  desc_ar: string;
+  desc_en: string;
+  starts_at: string;
+  ends_at: string | null;
+  price: number;
+  capacity: number | null;
+  image_url: string;
+  place: { name_ar: string; name_en: string } | null;
+  seats_left: number | null;
 };
 
 export type Catalog = {
@@ -248,6 +275,9 @@ export type Catalog = {
   bundle_plans?: BundlePlan[];
   review_url?: string;
   loyalty?: { every: number; reward_minutes: number };
+  happy_hours?: HappyHour[];
+  areas?: { id: string; capacity: number | null; occupied: number }[];
+  events?: PublicEvent[];
 };
 
 // What a cart line sends to the server

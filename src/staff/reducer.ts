@@ -32,7 +32,9 @@ export type OpType =
   | "edit_item"
   | "transfer_booker"
   | "sell_bundle"
-  | "stock_adjust";
+  | "stock_adjust"
+  | "handle_call"
+  | "set_offers";
 
 export type Op = {
   id: string;
@@ -306,6 +308,15 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
       };
     case "set_item_available":
       return { ...s, items: patch(s.items, p.menu_item_id, () => ({ available: !!p.available })) };
+    case "handle_call":
+      return {
+        ...s,
+        staff_calls: (s.staff_calls ?? []).map((c) =>
+          !c.handled_at && (c.id === p.call_id || (p.place_id && c.place_id === p.place_id)) ? { ...c, handled_at: at, handled_by: op.by ?? null } : c,
+        ),
+      };
+    case "set_offers":
+      return { ...s, customers: patch(s.customers, resolveCustomer(s, p.customer_id), () => ({ offers_opt_in: !!p.on })) };
     default:
       return s;
   }

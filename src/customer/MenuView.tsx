@@ -49,7 +49,7 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
 
   return (
     <div className="grid gap-6 pb-28">
-      {!place ? <p className="text-sm text-muted border-s-4 border-accent ps-3">{t("c.noPlace")}</p> : null}
+      {!place ? <p className="text-sm text-muted border-s-4 border-accent ps-3">{t("c.noPlace")}</p> : <CallStaff place={place} />}
 
       <MyOrders key={ordersTick} />
 
@@ -129,6 +129,56 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
         ) : null}
       </Sheet>
     </div>
+  );
+}
+
+const CALL_REASONS = ["help", "water", "bill"] as const;
+
+/** "Call staff" from the table: rings the counter. Pressing again for the same thing doesn't ring twice. */
+function CallStaff({ place }: { place: QrPlace }) {
+  const { t, n } = useI18n();
+  const toast = useToast();
+  const errText = useErrorText();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  async function call(reason: (typeof CALL_REASONS)[number]) {
+    setBusy(reason);
+    try {
+      await rpc("customer_call_staff", { p_token: place.token, p_reason: reason });
+      setRecent((m) => [...m, reason]);
+      setTimeout(() => setRecent((m) => m.filter((x) => x !== reason)), 60_000);
+      toast(t("call.sent"));
+      setOpen(false);
+    } catch (e) {
+      toast(isNetworkError(e) ? t("err.network") : errText(errorCode(e)), "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 rounded-[2px] border-2 border-line bg-surface px-3 py-2">
+        <span className="text-sm">{t("call.at", { place: n(place) })}</span>
+        <Button size="sm" variant="accent" onClick={() => setOpen(true)}>
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+          {t("call.button")}
+        </Button>
+      </div>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t("call.title")}>
+        <p className="text-sm text-muted">{t("call.lead")}</p>
+        <div className="grid gap-2">
+          {CALL_REASONS.map((r) => {
+            const sent = recent.includes(r);
+            return (
+              <Button key={r} size="lg" variant={r === "help" ? "primary" : "outline"} disabled={!!busy || sent} onClick={() => call(r)}>
+                {sent ? t("call.onTheWay") : t(r === "water" ? "call.water" : r === "bill" ? "call.bill" : "call.help")}
+              </Button>
+            );
+          })}
+        </div>
+      </Sheet>
+    </>
   );
 }
 

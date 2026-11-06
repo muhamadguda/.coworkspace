@@ -35,6 +35,18 @@ const STAFF: Section[] = [
     tip: { ar: "حد ماشي بدري والأوضة لسه شغالة؟ من زيارته «ماشي دلوقتي · يدفع اللي عليه». صاحب الحجز ماشي؟ «انقل الحجز لحد تاني».", en: "Someone leaves early while the room runs? On their bill: “Leaving now · pay own items”. The booker leaves? “Hand over the booking”." },
   },
   {
+    id: "areas",
+    title: { ar: "المساحات المشتركة ونداء الكاونتر", en: "Shared areas and calls" },
+    steps: [
+      { ar: "المساحة المشتركة: كل شخص ليه وقته وزيارته. دوس على المساحة ← «ضيف شخص» ← اختاره بالرقم وابدأ.", en: "Shared area: each person has their own timer and bill. Tap the area → “Add a person” → pick them by phone and start." },
+      { ar: "الرقم الكبير على المساحة = القاعدين / الكراسي. لما تكمل مش هتقدر تضيف حد.", en: "The big number on the area is people here / seats. When it's full you can't add anyone." },
+      { ar: "حد ماشي؟ «وقّف الوقت وحاسب» على اسمه، وبعدين حاسبه من زيارته.", en: "Someone leaving? “Stop time” on their name, then check out their bill." },
+      { ar: "الهابي آور بيتخصم لوحده من الوقت اللي جواه، وبيظهر سطر «هابي آور» وقت الحساب.", en: "Happy hour comes off the minutes inside it by itself; a “Happy hour” line shows when you end the time." },
+      { ar: "زبون داس «نادي حد» من الترابيزة؟ هيظهر تنبيه أحمر بصوت. روحله ودوس «تمام، رحت».", en: "A guest pressed “Call staff” at their table? A red alert with sound appears. Go over and press “Done”." },
+      { ar: "زبون عايز يتسجل في العروض؟ من «العملاء» علّم «العميل وافق يستقبل عروض». متعلمش غير لو هو قال آه.", en: "Guest wants offers? In “Customers” tick “Customer agreed to WhatsApp offers”. Only tick it if they said yes." },
+    ],
+  },
+  {
     id: "orders",
     title: { ar: "الطلبات", en: "Orders" },
     steps: [
@@ -116,6 +128,27 @@ const OWNER: Section[] = [
       { ar: "«الإعدادات ← باقات الساعات»: مثلاً ١٠ ساعات بسعر معين، صالحة ٣٠ يوم، لأي نوع أو نوع واحد.", en: "“Settings → Hour bundles”: e.g. 10 hours at a set price, valid 30 days, for any mode or one mode." },
       { ar: "«تقييمات ومكافآت»: حط لينك تقييم جوجل (من Google Business Profile) عشان يتبعت مع الفاتورة.", en: "“Reviews & rewards”: paste your Google review link (from Google Business Profile) so it goes out with receipts." },
       { ar: "حدد «ساعة ببلاش كل كام زيارة» ومدتها. المكافأة بتنزل لوحدها وبتتخصم زي الباقة. ٠ يقفلها.", en: "Set “Free time every N visits” and how long. Rewards are issued automatically and used like a bundle. 0 turns it off." },
+    ],
+  },
+  {
+    id: "o-extras",
+    title: { ar: "هابي آور، واي فاي، إنستاباي، والعروض", en: "Happy hours, Wi-Fi, InstaPay and offers" },
+    steps: [
+      { ar: "«الإعدادات ← هابي آور»: الأيام، من وإمتى، ونسبة الخصم، وعلى الأوض ولا المساحات ولا الاتنين. لو بعد نص الليل اكتب النهاية أبدر من البداية.", en: "“Settings → Happy hour”: days, from and until, the discount, and rooms, shared areas or both. Past midnight? Make the end earlier than the start." },
+      { ar: "«الإعدادات ← الأوض والترابيزات ← مساحة مشتركة جديدة»: الاسم وعدد الكراسي. سعرها من «أسعار الأوض» زي أي أوضة.", en: "“Settings → Rooms & tables → New shared area”: a name and the number of seats. Price it in “Room prices” like any room." },
+      { ar: "اكتب اسم الواي فاي والباسورد ورابط إنستاباي. بيظهروا كأكواد نقط في صفحة زيارة الزبون.", en: "Enter the Wi-Fi name and password and your InstaPay link. They show as dot codes on the guest's visit page." },
+      { ar: "«العملاء ← نزّل القايمة»: ملف بأرقام اللي وافقوا على العروض بس، جاهز لواتساب.", en: "“Customers → Download list”: a file of only the people who agreed to offers, ready for WhatsApp." },
+      { ar: "«اطبع أكواد QR» بتطبع كود لكل أوضة وترابيزة ومساحة بشكل النقط.", en: "“Print QR codes” prints a dot-style code for every room, table and area." },
+    ],
+  },
+  {
+    id: "o-events",
+    title: { ar: "الإيفنتات", en: "Events" },
+    steps: [
+      { ar: "«الإيفنتات ← إيفنت جديد»: الاسم بالعربي والإنجليزي، الميعاد، السعر (٠ = ببلاش)، عدد الأماكن، وصورة.", en: "“Events → New event”: title in Arabic and English, time, price (0 = free), seats, and an image." },
+      { ar: "الإيفنت بيظهر في dotcowork.space/events وعلى الصفحة الرئيسية. الناس بتحجز بالاسم والرقم، والدفع في المكان.", en: "It appears on dotcowork.space/events and the home page. People sign up with name and phone; they pay at the venue." },
+      { ar: "«المسجلين»: مين جاي، واتساب لكل واحد، علّم اللي حضر، ونزّل CSV. «اطبع بوستر» بيطلع بوستر بكود يحجز على طول.", en: "“Sign-ups”: who's coming, WhatsApp each one, mark who came, download CSV. “Print poster” gives a poster with a sign-up code." },
+      { ar: "كل تسجيل جديد بيوصلك تنبيه.", en: "Every new sign-up sends you a notification." },
     ],
   },
   {

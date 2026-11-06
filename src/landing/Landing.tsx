@@ -23,7 +23,7 @@ const SAGE = "#eaf0ea";
 const MUSTARD = "#d9a21b";
 const SCENES = [1, 2, 3, 4, 5, 6] as const;
 
-export function Landing() {
+export function Landing({ menuQr }: { menuQr?: string }) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   useEffect(() => {
     // Old QR links (/?t=…) and notification links (/?tab=…) belong to the menu.
@@ -40,7 +40,8 @@ export function Landing() {
       <Day catalog={catalog} />
       <Doors />
       <Floor catalog={catalog} />
-      <Board catalog={catalog} />
+      <Board catalog={catalog} menuQr={menuQr} />
+      <Events catalog={catalog} />
       <Call />
     </div>
   );
@@ -218,8 +219,9 @@ function Doors() {
 
 // ---------------------------------------------------------------- the floor (live rooms + prices)
 function Floor({ catalog }: { catalog: Catalog | null }) {
-  const { t, n, money } = useI18n();
+  const { t, n, money, lang } = useI18n();
   const rooms = useMemo(() => catalog?.places.filter((p) => p.kind === "room") ?? [], [catalog]);
+  const areas = useMemo(() => (catalog?.places ?? []).filter((p) => p.kind === "area").map((p) => ({ ...p, capacity: catalog?.areas?.find((a) => a.id === p.id)?.capacity ?? null, occupied: catalog?.areas?.find((a) => a.id === p.id)?.occupied ?? 0 })), [catalog]);
   const tables = useMemo(() => catalog?.places.filter((p) => p.kind === "table") ?? [], [catalog]);
   const [sel, setSel] = useState<string | null>(null);
   const room = rooms.find((r) => r.id === sel) ?? rooms[0];
@@ -281,6 +283,40 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
               </li>
             ))}
           </ul>
+          {areas.length ? (
+            <div className="grid gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("ar.title")}</span>
+              <ul className="grid gap-1.5">
+                {areas.map((a) => {
+                  const free = a.capacity != null ? Math.max(0, a.capacity - a.occupied) : null;
+                  return (
+                    <li key={a.id} className="flex items-center justify-between gap-3">
+                      <span className="font-semibold">{n(a)}</span>
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <span className="live-pulse size-2.5 rounded-full" style={{ background: free === 0 ? "#f0756c" : "#4cc38a" }} />
+                        {free == null ? t("ar.people", { n: a.occupied }) : free === 0 ? t("ar.full") : t("ar.seatsFree", { n: free })}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+          {catalog?.happy_hours?.length ? (
+            <div className="grid gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("hh.title")}</span>
+              <ul className="grid gap-1.5">
+                {catalog.happy_hours.map((h) => (
+                  <li key={h.id} className="flex flex-wrap items-baseline gap-x-3 text-sm">
+                    <span className="num font-bold text-lg" style={{ color: MUSTARD }}>−{h.percent_off}%</span>
+                    <span className="num font-semibold" dir="ltr">{h.start_time}–{h.end_time}</span>
+                    <span className="opacity-75">{h.days.length === 7 ? t("hh.everyDay") : [6, 0, 1, 2, 3, 4, 5].filter((d) => h.days.includes(d)).map((d) => new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, 7 + d)))).join(" · ")}</span>
+                    {n(h) ? <span className="opacity-75">· {n(h)}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {catalog?.bundle_plans?.length ? (
             <div className="grid gap-2">
               <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("bu.title")}</span>
@@ -303,7 +339,7 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
 }
 
 // ---------------------------------------------------------------- the menu board
-function Board({ catalog }: { catalog: Catalog | null }) {
+function Board({ catalog, menuQr }: { catalog: Catalog | null; menuQr?: string }) {
   const { t, n, money } = useI18n();
   const items = (catalog?.items ?? []).filter((i) => i.available).slice(0, 10);
   return (
@@ -312,7 +348,7 @@ function Board({ catalog }: { catalog: Catalog | null }) {
         <div className="grid content-start gap-6">
           <h2 className="font-display font-bold text-[clamp(52px,8.5vw,120px)] leading-[0.88]">{t("l.scanTitle")}</h2>
           <p className="text-lg max-w-[38ch] opacity-80">{t("l.scanLede")}</p>
-          <ScanTile />
+          <ScanTile svg={menuQr} />
         </div>
         <div className="rounded-[4px] p-6 sm:p-10 -rotate-[0.6deg] shadow-[0_30px_60px_-30px_rgba(8,23,22,0.6)]" style={{ background: TEAL, color: SAGE }}>
           <div className="flex items-baseline justify-between gap-4 mb-6">
@@ -338,25 +374,49 @@ function Board({ catalog }: { catalog: Catalog | null }) {
   );
 }
 
-/** The code on every table, made of dots; it reshuffles when you touch it. */
-function ScanTile() {
-  const [seed, setSeed] = useState(7);
-  const cells = useMemo(
-    () =>
-      Array.from({ length: 49 }, (_, i) => {
-        const r = Math.floor(i / 7), c = i % 7;
-        const finder = (r < 2 && c < 2) || (r < 2 && c > 4) || (r > 4 && c < 2);
-        const h = Math.sin((i + 1) * 12.9898 + seed * 78.233) * 43758.5453;
-        return finder || h - Math.floor(h) > 0.48;
-      }),
-    [seed],
-  );
+/** The real menu QR, made of dots like the ones on every table. */
+function ScanTile({ svg }: { svg?: string }) {
+  const { t } = useI18n();
+  if (!svg) return null;
   return (
-    <button type="button" aria-hidden tabIndex={-1} onPointerEnter={() => setSeed((s) => s + 1)} onClick={() => setSeed((s) => s + 1)} className="justify-self-start grid grid-cols-7 gap-1.5 p-4 rounded-[4px] rotate-[1.5deg] transition-transform hover:rotate-0" style={{ background: TEAL }}>
-      {cells.map((on, i) => (
-        <span key={i} className="size-5 sm:size-7 rounded-full transition-all duration-300" style={{ background: on ? (i % 11 === 0 ? MUSTARD : SAGE) : "transparent", transform: on ? "scale(1)" : "scale(0.3)", transitionDelay: `${(i % 7) * 18}ms` }} />
-      ))}
-    </button>
+    <a href="/menu" className="justify-self-start grid gap-3 p-4 rounded-[4px] rotate-[1.5deg] transition-transform hover:rotate-0 w-56 sm:w-64" style={{ background: TEAL }}>
+      <span className="block rounded-[2px] overflow-hidden leading-[0]" dangerouslySetInnerHTML={{ __html: svg.replace("<svg ", '<svg width="100%" height="100%" ') }} />
+      <span className="text-center text-sm font-semibold" style={{ color: SAGE }}>{t("l.scanMenu")}</span>
+    </a>
+  );
+}
+
+// ---------------------------------------------------------------- what's on
+function Events({ catalog }: { catalog: Catalog | null }) {
+  const { t, lang, money, time } = useI18n();
+  const list = (catalog?.events ?? []).slice(0, 3);
+  if (!list.length) return null;
+  const day = (iso: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Africa/Cairo" }).format(new Date(iso));
+  return (
+    <section style={{ background: TEAL, color: SAGE }}>
+      <div className="mx-auto max-w-7xl py-20 sm:py-24 grid gap-8" style={gutter}>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className="font-display font-bold text-[clamp(44px,7vw,96px)] leading-[0.9]">{t("l.eventsTitle")}</h2>
+          <a href="/events" className="text-sm font-semibold underline underline-offset-4" style={{ textDecorationColor: MUSTARD }}>{t("l.allEvents")}</a>
+        </div>
+        <ul className="grid gap-4 md:grid-cols-3">
+          {list.map((e) => (
+            <li key={e.id}>
+              <a href={`/events#${e.id}`} className="h-full grid content-between gap-6 rounded-[4px] border-2 p-5 transition-transform hover:-translate-y-1" style={{ borderColor: `${SAGE}33` }}>
+                <span className="grid gap-2">
+                  <span className="num text-sm font-bold uppercase tracking-[0.2em]" style={{ color: MUSTARD }}>{day(e.starts_at)} · {time(e.starts_at)}</span>
+                  <span className="font-display text-2xl font-bold">{lang === "ar" ? e.title_ar : e.title_en}</span>
+                </span>
+                <span className="flex items-center justify-between gap-2 text-sm font-semibold">
+                  <span>{e.price > 0 ? money(e.price) : t("ev.free")}</span>
+                  {e.seats_left != null ? <span className="opacity-75">{e.seats_left > 0 ? t("ev.seatsLeft", { n: e.seats_left }) : t("ev.full")}</span> : null}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 

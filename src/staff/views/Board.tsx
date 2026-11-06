@@ -5,7 +5,7 @@ import { useI18n, formatClock } from "@/lib/i18n";
 import { rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, StatusDot, cx } from "@/components/ui";
-import { activeSessionAt, billRunningTotal, billsAtPlace, billsInSession, customerById, liveRoomFee, segmentsOf, upcomingBookingFor } from "../derive";
+import { activeSessionAt, activeSessionsAt, billRunningTotal, billsAtPlace, billsInSession, customerById, liveRoomFee, segmentsOf, upcomingBookingFor } from "../derive";
 import { dispatch, uuid } from "../store";
 import { useNow, useSnap } from "../hooks";
 import { BillCard } from "../components/BillCard";
@@ -20,6 +20,7 @@ export function Board({ focus, preset, onPresetHandled }: { focus?: string; pres
   const [openPlace, setOpenPlace] = useState<string | null>(focus ?? null);
   const rooms = snap.places.filter((p) => p.kind === "room" && p.active);
   const tables = snap.places.filter((p) => p.kind === "table" && p.active);
+  const areas = snap.places.filter((p) => p.kind === "area" && p.active);
 
 
   const counterBills = snap.bills.filter((b) => b.status === "open" && !b.place_id);
@@ -34,6 +35,14 @@ export function Board({ focus, preset, onPresetHandled }: { focus?: string; pres
           {rooms.map((r) => <RoomTile key={r.id} room={r} onOpen={() => setOpenPlace(r.id)} />)}
         </div>
       </section>
+      {areas.length ? (
+        <section className="grid gap-3">
+          <SectionTitle>{t("ar.title")}</SectionTitle>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+            {areas.map((a) => <AreaTile key={a.id} area={a} onOpen={() => setOpenPlace(a.id)} />)}
+          </div>
+        </section>
+      ) : null}
       <section className="grid gap-3">
         <SectionTitle>{t("common.tables")}</SectionTitle>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
@@ -47,7 +56,11 @@ export function Board({ focus, preset, onPresetHandled }: { focus?: string; pres
         ) : null}
       </section>
 
-      {placeOpen ? (placeOpen.kind === "room" ? <RoomPanel room={placeOpen} onClose={() => setOpenPlace(null)} /> : <TablePanel table={placeOpen} onClose={() => setOpenPlace(null)} />) : null}
+      {placeOpen ? (
+        placeOpen.kind === "room" ? <RoomPanel room={placeOpen} onClose={() => setOpenPlace(null)} />
+        : placeOpen.kind === "area" ? <AreaPanel area={placeOpen} onClose={() => setOpenPlace(null)} />
+        : <TablePanel table={placeOpen} onClose={() => setOpenPlace(null)} />
+      ) : null}
       {presetPlace ? <StartSessionSheet place={presetPlace} open onClose={onPresetHandled} presetCustomer={preset?.customerId} presetBooking={preset?.bookingId} /> : null}
     </div>
   );
@@ -100,6 +113,87 @@ function RoomTile({ room, onOpen }: { room: Place; onOpen: () => void }) {
       )}
       {next && next.session_id !== sess.id ? <Pill tone="warn" className="justify-self-start">{t("b.nextBooking", { time: time(next.starts_at) })}</Pill> : null}
     </button>
+  );
+}
+
+function AreaTile({ area, onOpen }: { area: Place; onOpen: () => void }) {
+  const { t, n, money } = useI18n();
+  const snap = useSnap();
+  const now = useNow(15000);
+  const people = activeSessionsAt(snap, area.id);
+  const cap = area.capacity ?? null;
+  const full = cap != null && people.length >= cap;
+  const total = people.reduce((a, s) => a + liveRoomFee(snap, s, now).fee, 0);
+  const calling = (snap.staff_calls ?? []).some((c) => c.place_id === area.id && !c.handled_at);
+  return (
+    <button type="button" onClick={onOpen} className={cx("text-start rounded-[2px] border-2 p-4 grid gap-2 min-h-36 hover:brightness-[1.03]", full ? "border-busy bg-busy-bg" : "border-free bg-free-bg", calling && "alarm")}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-display text-2xl font-bold">{n(area)}</span>
+        <span className={cx("inline-flex items-center gap-1.5 font-bold", full ? "text-busy" : "text-free")}><StatusDot tone={full ? "busy" : "free"} />{full ? t("ar.full") : t("b.free")}</span>
+      </div>
+      <div className="num text-3xl font-bold">{people.length}{cap != null ? <span className="text-lg text-muted"> / {cap}</span> : null}</div>
+      <div className="text-sm">{cap != null ? t("ar.seatsFree", { n: Math.max(0, cap - people.length) }) : t("ar.people", { n: people.length })}</div>
+      {people.length ? <span className="num text-sm">{money(total)} <span className="text-muted">{t("b.estimate")}</span></span> : null}
+    </button>
+  );
+}
+
+function AreaPanel({ area, onClose }: { area: Place; onClose: () => void }) {
+  const { t, n, money } = useI18n();
+  const snap = useSnap();
+  const now = useNow(5000);
+  const [adding, setAdding] = useState(false);
+  const [ending, setEnding] = useState<Session | null>(null);
+  const people = activeSessionsAt(snap, area.id);
+  const cap = area.capacity ?? null;
+  const full = cap != null && people.length >= cap;
+  // Bills of people whose timer stopped but who haven't paid yet.
+  const waiting = snap.bills.filter((b) => b.place_id === area.id && b.status === "open" && (!b.session_id || snap.sessions.find((s) => s.id === b.session_id)?.status === "ended"));
+  return (
+    <Sheet open onClose={onClose} wide title={`${n(area)} · ${people.length}${cap != null ? ` / ${cap}` : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="font-display text-lg font-bold">{t("ar.here")}</h4>
+        <Button variant="free" disabled={full} onClick={() => setAdding(true)}>{full ? t("ar.full") : t("ar.add")}</Button>
+      </div>
+      {people.length ? (
+        <ul className="grid gap-2 md:grid-cols-2">
+          {people.map((s) => {
+            const c = customerById(snap, s.booker_customer_id);
+            const fee = liveRoomFee(snap, s, now);
+            const mode = snap.modes.find((m) => m.id === segmentsOf(snap, s.id).at(-1)?.mode_id);
+            const left = s.kind === "fixed" && s.planned_end ? (Date.parse(s.planned_end) - now.getTime()) / 60000 : null;
+            return (
+              <li key={s.id}>
+                <Card className={cx("p-3 grid gap-2", left != null && left <= 0 && "alarm")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="grid min-w-0">
+                      <span className="font-semibold truncate">{c?.name || "—"}</span>
+                      <span className="num text-xs text-muted">{c?.phone} · {n(mode)}</span>
+                    </div>
+                    <div className="text-end">
+                      <div className="num text-xl font-bold">{formatClock((now.getTime() - Date.parse(s.started_at)) / 60000)}</div>
+                      <div className="num text-sm">{money(fee.fee)}</div>
+                    </div>
+                  </div>
+                  {left != null ? <Pill tone={left <= 10 ? "busy" : "neutral"} className="justify-self-start">{left <= 0 ? t("b.over", { t: formatClock(-left) }) : t("b.left", { t: formatClock(left) })}</Pill> : null}
+                  <Button size="sm" variant="danger" onClick={() => setEnding(s)}>{t("ar.stop")}</Button>
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <Empty>{t("ar.empty")}</Empty>
+      )}
+      {waiting.length ? (
+        <>
+          <h4 className="font-display text-lg font-bold">{t("ar.toPay")}</h4>
+          <div className="grid gap-3 md:grid-cols-2">{waiting.map((b) => <BillCard key={b.id} bill={b} compact />)}</div>
+        </>
+      ) : null}
+      {adding ? <StartSessionSheet place={area} open onClose={() => setAdding(false)} /> : null}
+      {ending ? <EndSessionSheet session={ending} open onClose={() => setEnding(null)} onEnded={() => setEnding(null)} /> : null}
+    </Sheet>
   );
 }
 

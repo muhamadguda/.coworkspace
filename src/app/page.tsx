@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Landing } from "@/landing/Landing";
 import { VENUE } from "@/landing/config";
+import { dotQrSvg } from "@/lib/dotqr";
 
 // Structured data so search engines and Maps can show the place, phone and map link.
 const jsonLd = {
@@ -32,7 +33,7 @@ export default function Home() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
-      <Landing />
+      <Landing menuQr={dotQrSvg("https://dotcowork.space/menu", { fg: "#173a39", bg: "#eaf0ea", label: "Menu: dotcowork.space/menu" })} />
     </>
   );
 }

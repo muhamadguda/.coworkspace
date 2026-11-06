@@ -3,6 +3,8 @@ import type { Bill, Booking, Customer, CustomerBundle, Order, OrderItem, Place, 
 import { itemsTotalFor } from "./reducer";
 
 export const activeSessionAt = (s: Snapshot, placeId: string) => s.sessions.find((x) => x.place_id === placeId && x.status === "active");
+export const activeSessionsAt = (s: Snapshot, placeId: string) => s.sessions.filter((x) => x.place_id === placeId && x.status === "active").sort((a, b) => a.started_at.localeCompare(b.started_at));
+export const openCalls = (s: Snapshot) => (s.staff_calls ?? []).filter((c) => !c.handled_at).sort((a, b) => a.created_at.localeCompare(b.created_at));
 export const segmentsOf = (s: Snapshot, sessionId: string) => s.segments.filter((g) => g.session_id === sessionId).sort((a, b) => a.started_at.localeCompare(b.started_at));
 export const customerById = (s: Snapshot, id: string): Customer | undefined => s.customers.find((c) => c.id === (s.aliases?.[id] ?? id));
 export const placeById = (s: Snapshot, id: string | null | undefined): Place | undefined => (id ? s.places.find((p) => p.id === id) : undefined);
@@ -23,6 +25,7 @@ export function liveRoomFee(s: Snapshot, session: Session, now: Date, chargeOver
     end: session.status === "ended" && session.ended_at ? session.ended_at : now,
     settings: s.settings,
     chargeOverstay,
+    happy: { hours: s.happy_hours ?? [], placeKind: placeById(s, session.place_id)?.kind ?? "room" },
   });
 }
 

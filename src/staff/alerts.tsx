@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Button, cx } from "@/components/ui";
-import { activeSessionAt, placeById } from "./derive";
+import { activeSessionAt, openCalls, placeById } from "./derive";
 import { audioReady, beep } from "./alarm";
 import { dispatch } from "./store";
 import { useNow, useSnap } from "./hooks";
@@ -41,6 +41,21 @@ export function useAlerts(goto: (tab: string, focus?: string) => void) {
 
   const alerts = useMemo<AlertItem[]>(() => {
     const out: AlertItem[] = [];
+    // A guest pressed "Call staff" on their table's menu. Calls older than 2 hours are stale.
+    for (const c of openCalls(snap)) {
+      if (now.getTime() - Date.parse(c.created_at) > 2 * 3600_000) continue;
+      const place = placeById(snap, c.place_id);
+      out.push({
+        key: `call:${c.id}`,
+        tone: "busy",
+        urgent: true,
+        text: t(c.reason === "water" ? "call.aWater" : c.reason === "bill" ? "call.aBill" : "call.aHelp", { place: n(place), time: time(c.created_at) }),
+        actions: [
+          { label: t("a.open"), onClick: () => goto("board", c.place_id) },
+          { label: t("call.done"), onClick: () => dispatch("handle_call", { call_id: c.id }), variant: "primary" },
+        ],
+      });
+    }
     const newOrders = snap.orders.filter((o) => o.status === "new");
     if (newOrders.length) {
       const first = newOrders[0];

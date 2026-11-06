@@ -4,7 +4,7 @@
 
 export type Identity = { phone: string; code: string; name: string };
 export type MyOrder = { id: string; at: number };
-export type QrPlace = { token: string; id: string; kind: "room" | "table"; name_ar: string; name_en: string; at: number };
+export type QrPlace = { token: string; id: string; kind: "room" | "table" | "area"; name_ar: string; name_en: string; at: number };
 
 const read = <T,>(k: string, fallback: T): T => {
   try {

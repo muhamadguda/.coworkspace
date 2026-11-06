@@ -47,7 +47,7 @@ export function CustomerApp() {
       setPlace(getQrPlace());
       return;
     }
-    rpc<{ id: string; kind: "room" | "table"; name_ar: string; name_en: string } | null>("place_by_token", { p_token: token })
+    rpc<{ id: string; kind: "room" | "table" | "area"; name_ar: string; name_en: string } | null>("place_by_token", { p_token: token })
       .then((p) => {
         if (p) {
           const qp: QrPlace = { token, ...p, at: Date.now() };

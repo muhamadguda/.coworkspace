@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
-import { errorCode, rpc } from "@/lib/supabase";
+import { errorCode, rpc, supabase } from "@/lib/supabase";
+import { downloadCsv, intlPhone } from "@/lib/csv";
 import { round2 } from "@/lib/billing";
 import type { Customer, PayMethod } from "@/lib/types";
-import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Sheet, useToast } from "@/components/ui";
+import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Sheet, Toggle, useToast } from "@/components/ui";
 import { activeBundlesOf, fmtHours, openBillOfCustomer, placeById, searchCustomers } from "../derive";
-import { openWhatsApp } from "@/lib/phone";
+import { openWhatsApp, waNumber } from "@/lib/phone";
 import { fmtDay } from "../receipts";
 import { dispatch, refresh, uuid } from "../store";
 import { useIsOwner, useOnline, useSnap } from "../hooks";
@@ -24,6 +25,7 @@ export function CustomersView() {
 
   return (
     <div className="grid gap-4">
+      <OffersExport />
       <Field label={t("cu.search")}>
         <Input id="cust-q" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
       </Field>
@@ -37,6 +39,44 @@ export function CustomersView() {
       )}
       {selected ? <CustomerSheet c={selected} onClose={() => setSel(null)} /> : null}
     </div>
+  );
+}
+
+/** Owner: the WhatsApp offers list, only customers who said yes. */
+function OffersExport() {
+  const { t } = useI18n();
+  const isOwner = useIsOwner();
+  const online = useOnline();
+  const toast = useToast();
+  const errText = useErrorText();
+  const [busy, setBusy] = useState(false);
+  if (!isOwner) return null;
+  async function run() {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase().from("customers").select("name, phone, offers_opt_in_at, created_at").eq("offers_opt_in", true).order("offers_opt_in_at", { ascending: false }).limit(10000);
+      if (error) throw error;
+      const rows = (data ?? []).map((c) => [c.name, intlPhone(waNumber(c.phone)), c.phone, (c.offers_opt_in_at ?? "").slice(0, 10), (c.created_at ?? "").slice(0, 10)]);
+      if (!rows.length) {
+        toast(t("of.none"));
+        return;
+      }
+      downloadCsv(`dot-offers-${new Date().toISOString().slice(0, 10)}.csv`, ["name", "phone", "phone_local", "opted_in", "customer_since"], rows);
+      toast(t("of.exported", { n: rows.length }));
+    } catch (e) {
+      toast(errText(errorCode(e)), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card className="p-3 flex flex-wrap items-center justify-between gap-2">
+      <span className="grid">
+        <span className="font-semibold">{t("of.listTitle")}</span>
+        <span className="text-xs text-muted">{t("of.listHint")}</span>
+      </span>
+      <Button size="sm" busy={busy} disabled={!online} onClick={run}>{t("of.export")}</Button>
+    </Card>
   );
 }
 
@@ -93,6 +133,8 @@ function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
         </Field>
         <Button disabled={name.trim() === c.name} onClick={() => { dispatch("rename_customer", { customer_id: c.id, name: name.trim() }); toast(t("common.saved")); }}>{t("common.save")}</Button>
       </div>
+
+      <Toggle checked={!!c.offers_opt_in} onChange={(v) => { dispatch("set_offers", { customer_id: c.id, on: v }); toast(t("common.saved")); }} label={t("of.staffLabel")} />
 
       <Card className="p-3 grid gap-3">
         <div className="flex justify-between gap-2 font-semibold">

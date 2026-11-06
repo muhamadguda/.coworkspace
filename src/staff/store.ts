@@ -151,7 +151,7 @@ function onOnline() {
 function subscribeRealtime() {
   const sb = supabase();
   channel = sb.channel("staff-feed");
-  for (const table of ["orders", "order_items", "bookings", "bills", "room_sessions", "session_segments", "menu_items", "payments", "customers", "cash_days", "cash_outs", "customer_bundles"]) {
+  for (const table of ["orders", "order_items", "bookings", "bills", "room_sessions", "session_segments", "menu_items", "payments", "customers", "cash_days", "cash_outs", "customer_bundles", "staff_calls"]) {
     // 1.5 s debounce: one counter action touches several tables (order + items + bill).
     channel.on("postgres_changes", { event: "*", schema: "public", table }, () => scheduleRefresh(1500));
   }
@@ -217,7 +217,7 @@ async function flush() {
       if (!next) break;
       const { state: _s, sentAt: _a, by: _b, ...op } = next;
       try {
-        await rpc("staff_op3", { op });
+        await rpc("staff_op4", { op });
         set({ queue: state.queue.map((q) => (q.id === next.id ? { ...q, state: "sent" as const, sentAt: Date.now() } : q)), online: true });
       } catch (e) {
         if (isAuthError(e) && errorCode(e) !== "bad_owner_credentials") {
@@ -260,6 +260,6 @@ export function dispatch(type: OpType, payload: Record<string, unknown>): string
 export async function dispatchOnline(type: OpType, payload: Record<string, unknown>, override?: { phone: string; password: string }) {
   if (state.queue.some((q) => q.state === "pending")) await flush();
   const op = { id: uuid(), type, at: new Date().toISOString(), payload, override };
-  await rpc("staff_op3", { op });
+  await rpc("staff_op4", { op });
   await refresh();
 }
