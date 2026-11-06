@@ -27,7 +27,9 @@ export function TodayCard() {
     minutesByPlace.set(s.place_id, (minutesByPlace.get(s.place_id) ?? 0) + Math.max(0, (end - Date.parse(s.started_at)) / 60000));
   }
   const busiest = [...minutesByPlace.entries()].sort((a, b) => b[1] - a[1])[0];
-  const busyNow = snap.sessions.filter((s) => s.status === "active").length;
+  // Rooms in use (a shared area holds many people's timers, so it doesn't count here).
+  const roomIds = new Set(snap.places.filter((p) => p.kind === "room").map((p) => p.id));
+  const busyNow = snap.sessions.filter((s) => s.status === "active" && roomIds.has(s.place_id)).length;
   const rooms = snap.places.filter((p) => p.kind === "room" && p.active).length;
 
   const countedOrders = new Set(snap.orders.filter((o) => (o.status === "accepted" || o.status === "served") && businessDay(o.created_at, roll) === day).map((o) => o.id));
