@@ -46,10 +46,14 @@ export function SampleEvents() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Auto-advance every 3.5 s while on screen; a touch, hover or keyboard focus pauses it.
+  // Auto-advance every 3.5 s (6 s with reduced motion) while on screen; a touch, hover or focus pauses it.
   useEffect(() => {
     const el = track.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!el) return;
+    // Phones on battery saver (or with "remove animations") ask for reduced motion: keep advancing,
+    // just slower and without the slide.
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior: ScrollBehavior = calm ? "auto" : "smooth";
     const io = new IntersectionObserver(([e]) => (visible.current = e.isIntersecting), { threshold: 0.4 });
     io.observe(el);
     let resume: ReturnType<typeof setTimeout> | undefined;
@@ -66,9 +70,9 @@ export function SampleEvents() {
       if (!card) return;
       const dir = getComputedStyle(el).direction === "rtl" ? -1 : 1;
       const atEnd = Math.abs(el.scrollLeft) + el.clientWidth >= el.scrollWidth - 8;
-      if (atEnd) el.scrollTo({ left: 0, behavior: "smooth" });
-      else el.scrollBy({ left: dir * (card.offsetWidth + 16), behavior: "smooth" });
-    }, 3500);
+      if (atEnd) el.scrollTo({ left: 0, behavior });
+      else el.scrollBy({ left: dir * (card.offsetWidth + 16), behavior });
+    }, calm ? 6000 : 3500);
     return () => {
       io.disconnect();
       clearInterval(tick);
@@ -98,7 +102,7 @@ export function SampleEvents() {
           <p className="max-w-[36ch] opacity-75">{t("l.nightsLede")}</p>
         </div>
 
-        <ul ref={track} className="no-scrollbar -mx-5 px-5 flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2" style={{ scrollPaddingInline: 20 }}>
+        <ul ref={track} className="no-scrollbar -mx-5 px-5 flex gap-4 overflow-x-auto snap-x snap-mandatory motion-safe:scroll-smooth pb-2" style={{ scrollPaddingInline: 20 }}>
           {NIGHTS.map((x, i) => (
             <li key={x.en} className="snap-start shrink-0 w-[82vw] sm:w-[420px]" aria-roledescription="slide" aria-label={`${i + 1} / ${NIGHTS.length}`}>
               <figure className="relative aspect-[4/3] overflow-hidden rounded-[4px] border-2 group" style={{ borderColor: `${SAGE}22`, background: TEAL }}>
