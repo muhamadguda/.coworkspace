@@ -12,10 +12,10 @@ export const metadata: Metadata = {
   title: { default: "dots · co-working & café", template: "%s · dots" },
   description: "dots co-working space and café: order from your table, check your bill, book a room.",
   applicationName: "dots",
-  metadataBase: new URL("https://dotswork.space"),
+  metadataBase: new URL("https://www.dotswork.space"),
   appleWebApp: { capable: true, title: "dots", statusBarStyle: "default" },
   keywords: ["co-working", "coworking space", "café", "study space", "meeting room", "PlayStation", "مساحة عمل", "كوورك", "مذاكرة", "قاعة اجتماعات", "dots"],
-  openGraph: { siteName: "dots", type: "website", locale: "ar_EG", alternateLocale: ["en_US"], url: "https://dotswork.space" },
+  openGraph: { siteName: "dots", type: "website", locale: "ar_EG", alternateLocale: ["en_US"], url: "https://www.dotswork.space" },
   twitter: { card: "summary_large_image" },
   formatDetection: { telephone: false },
 };

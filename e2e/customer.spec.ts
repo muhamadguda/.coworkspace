@@ -6,7 +6,7 @@ test("landing page, sitemap, robots and share image", async ({ page, request }) 
   await expect(page).toHaveTitle(/dot/);
   await expect(page.locator('a[href^="tel:"]').first()).toBeVisible();
   expect((await request.get("/robots.txt")).status()).toBe(200);
-  expect(await (await request.get("/sitemap.xml")).text()).toContain("https://dotswork.space/menu");
+  expect(await (await request.get("/sitemap.xml")).text()).toContain("https://www.dotswork.space/menu");
   const og = await request.get("/opengraph-image");
   expect(og.status()).toBe(200);
   expect(og.headers()["content-type"]).toContain("image/png");

@@ -4,8 +4,8 @@
 export const BRAND = "dots";
 export const CUSTOMER_HOST = "dotswork.space";
 export const STAFF_HOST = "dotcowork.space";
-export const CUSTOMER_ORIGIN = `https://${CUSTOMER_HOST}`;
-export const STAFF_ORIGIN = `https://${STAFF_HOST}`;
+export const CUSTOMER_ORIGIN = `https://www.${CUSTOMER_HOST}`; // Vercel serves www; apex redirects to it
+export const STAFF_ORIGIN = `https://www.${STAFF_HOST}`;
 
 const STAFF_PATHS = ["/staff", "/setup"];
 const CUSTOMER_PATHS = ["/menu", "/events"];
