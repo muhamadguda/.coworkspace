@@ -62,6 +62,8 @@ export type MenuItem = {
   available: boolean;
   active: boolean;
   sort: number;
+  /** false = only on custom menus (stations, assigned customers) */
+  public?: boolean;
   track_stock?: boolean;
   stock_qty?: number;
   low_stock_at?: number;

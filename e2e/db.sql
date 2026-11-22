@@ -177,4 +177,100 @@ begin
   raise notice 'db tests: all passed';
 end $t$;
 
+-- Custom menus and stations.
+do $s$
+declare uid uuid; hid uuid; pub uuid; st jsonb; st2 jsonb; m jsonb; r jsonb; ok boolean; mcode text; acct uuid; ord uuid := gen_random_uuid(); menu uuid; n int;
+begin
+  select user_id into uid from staff_profiles where role = 'owner' and active limit 1;
+  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select id into hid from menu_items where active and options = '[]'::jsonb order by sort desc limit 1;
+  select id into pub from menu_items where active and options = '[]'::jsonb and id <> hid order by sort limit 1;
+  update menu_items set public = false, available = true where id = hid;
+  assert not exists (select 1 from jsonb_array_elements(public_catalog2()->'items') x where x->>'id' = hid::text), 'hidden item not on public menu';
+
+  st := owner_create_station('');
+  assert (select name like 'Station %' from stations where id = (st->>'id')::uuid), 'default station name';
+  acct := (st->>'account_customer_id')::uuid;
+  m := owner_add_member('station', (st->>'id')::uuid, '01055550001', 'Sara');
+  mcode := m->>'code';
+  insert into custom_menu_items (menu_id, menu_item_id) values ((st->>'menu_id')::uuid, hid);
+
+  r := customer_my_menus('01055550001', '0000');
+  assert r->>'error' = 'customer_not_found', 'my menus needs the right code';
+  r := customer_my_menus('01055550001', mcode);
+  assert r->'station'->>'name' like 'Station %', 'member sees their station';
+  assert exists (select 1 from jsonb_array_elements(r->'items') x where x->>'id' = hid::text), 'member sees the hidden item';
+
+  -- Strangers can't order a hidden item; members can.
+  begin
+    perform customer_place_order(gen_random_uuid(), null, '01055550009', null, 'X', jsonb_build_array(jsonb_build_object('menu_item_id', hid, 'qty', 1)), '');
+    ok := false;
+  exception when others then ok := sqlerrm = 'item_not_found'; end;
+  assert ok, 'stranger cannot order a hidden item';
+  perform customer_place_order(gen_random_uuid(), null, '01055550001', null, '', jsonb_build_array(jsonb_build_object('menu_item_id', hid, 'qty', 1)), '');
+  perform customer_place_order(gen_random_uuid(), null, '01055550009', null, 'X', jsonb_build_array(jsonb_build_object('menu_item_id', pub, 'qty', 1)), '');
+
+  -- Ordering on the station account needs phone and code, and lands on the station's own bill.
+  begin
+    perform customer_place_order2(gen_random_uuid(), null, '01055550001', '0000', '', jsonb_build_array(jsonb_build_object('menu_item_id', pub, 'qty', 1)), '', true);
+    ok := false;
+  exception when others then ok := sqlerrm = 'customer_not_found'; end;
+  assert ok, 'station order needs the code';
+  begin
+    perform customer_place_order2(gen_random_uuid(), null, '01055550009', (select code from customers where phone = '01055550009'), '', jsonb_build_array(jsonb_build_object('menu_item_id', pub, 'qty', 1)), '', true);
+    ok := false;
+  exception when others then ok := sqlerrm = 'not_station_member'; end;
+  assert ok, 'non-member cannot charge a station';
+  r := customer_place_order2(ord, null, '01055550001', mcode, '', jsonb_build_array(jsonb_build_object('menu_item_id', hid, 'qty', 2)), 'desk 3', true);
+  assert (select customer_id = acct and ordered_by = (m->>'customer_id')::uuid and note like '%Sara%desk 3' from orders where id = ord), 'order on the station account';
+  assert exists (select 1 from bills where customer_id = acct and status = 'open' and place_id is null and session_id is null), 'station bill open, no room';
+  r := staff_op5(jsonb_build_object('id', gen_random_uuid(), 'type', 'accept_order', 'payload', jsonb_build_object('order_id', ord)));
+  assert (r->>'bill_id')::uuid = (select id from bills where customer_id = acct and status = 'open'), 'accepted onto the station bill';
+  assert (owner_stations_menus()->'stations'->0->>'open_bill')::numeric > 0, 'owner sees the open tab';
+
+  -- The account's code alone never orders.
+  begin
+    perform customer_place_order(gen_random_uuid(), null, '', (select code from customers where id = acct), '', jsonb_build_array(jsonb_build_object('menu_item_id', pub, 'qty', 1)), '');
+    ok := false;
+  exception when others then ok := sqlerrm = 'customer_not_found'; end;
+  assert ok, 'station account code is refused';
+
+  -- One station per person.
+  st2 := owner_create_station('Station B');
+  begin
+    perform owner_add_member('station', (st2->>'id')::uuid, '01055550001', '');
+    ok := false;
+  exception when others then ok := sqlerrm = 'already_in_station'; end;
+  assert ok, 'one station per person';
+
+  -- A plain custom menu by phone.
+  insert into custom_menus (name_ar, name_en) values ('خاص', 'VIP') returning id into menu;
+  insert into custom_menu_items (menu_id, menu_item_id) values (menu, hid);
+  m := owner_add_member('menu', menu, '01055550002', '');
+  r := customer_my_menus('01055550002', m->>'code');
+  assert r->'station' = 'null'::jsonb and jsonb_array_length(r->'menus') = 1, 'custom menu member sees it, no station';
+  update custom_menus set active = false where id = menu;
+  r := customer_my_menus('01055550002', m->>'code');
+  assert jsonb_array_length(r->'menus') = 0, 'inactive menu hidden';
+
+  -- Anonymous callers.
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  select count(*) into n from menu_items where id = hid;
+  assert n = 0, 'anon cannot read hidden items';
+  begin
+    perform owner_create_station('x');
+    ok := false;
+  exception when others then ok := true; end;
+  assert ok, 'anon cannot create stations';
+  begin
+    insert into station_members (station_id, customer_id) values ((st->>'id')::uuid, (m->>'customer_id')::uuid);
+    ok := false;
+  exception when others then ok := true; end;
+  assert ok, 'anon cannot add station members';
+  perform set_config('role', 'postgres', true);
+  raise notice 'station tests: all passed';
+end $s$;
+
 rollback;

@@ -6,12 +6,15 @@ import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { round2 } from "@/lib/billing";
 import type { CartLine, Catalog, ChosenOption, MenuItem, OrderStatus } from "@/lib/types";
-import { Button, Card, Empty, Field, Input, Pill, Sheet, Textarea, cx, useToast } from "@/components/ui";
+import { Button, Card, Empty, Field, Input, Pill, Sheet, Textarea, Toggle, cx, useToast } from "@/components/ui";
 import { addMyOrder, getIdentity, getMyOrders, setIdentity, setQrPlace, type QrPlace } from "./local";
 import { NotifyButton } from "@/components/NotifyButton";
 
-export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; place: QrPlace | null; onRefresh: () => void }) {
+type Mine = { station: { id: string; name: string } | null; menus: { id: string; name_ar: string; name_en: string; item_ids: string[] }[]; items: MenuItem[] };
+
+export function MenuView({ catalog: publicCatalog, place, onRefresh }: { catalog: Catalog; place: QrPlace | null; onRefresh: () => void }) {
   const { t, n, money } = useI18n();
+  const [mine, setMine] = useState<Mine | null>(null);
   const [rawCart, setCart] = useState<CartLine[]>([]);
   const [picking, setPicking] = useState<MenuItem | null>(null);
   const [reviewing, setReviewing] = useState(false);
@@ -20,11 +23,28 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
   const [ordersTick, setOrdersTick] = useState(0);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
+  // Custom menus and station: only for a known phone + code on this device.
+  useEffect(() => {
+    const me = getIdentity();
+    if (!me.phone || !me.code) return;
+    let alive = true;
+    rpc<Mine>("customer_my_menus", { p_phone: me.phone, p_code: me.code })
+      .then((r) => alive && setMine(r))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [ordersTick]);
+  const catalog = useMemo<Catalog>(() => {
+    const extra = (mine?.items ?? []).filter((i) => !publicCatalog.items.some((p) => p.id === i.id));
+    return extra.length ? { ...publicCatalog, items: [...publicCatalog.items, ...extra] } : publicCatalog;
+  }, [publicCatalog, mine]);
+
   const itemsByCat = useMemo(() => {
     const m = new Map<string, MenuItem[]>();
-    for (const it of catalog.items) m.set(it.category_id, [...(m.get(it.category_id) ?? []), it]);
+    for (const it of publicCatalog.items) m.set(it.category_id, [...(m.get(it.category_id) ?? []), it]);
     return m;
-  }, [catalog.items]);
+  }, [publicCatalog.items]);
   const cats = catalog.categories.filter((c) => itemsByCat.get(c.id)?.length);
   // Items that sold out while sitting in the cart drop out automatically.
   const cart = rawCart.filter((l) => catalog.items.find((i) => i.id === l.menu_item_id)?.available);
@@ -71,7 +91,22 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
         </div>
       ) : null}
 
-      {cats.length === 0 ? <Empty>{t("common.none")}</Empty> : null}
+      {mine?.menus.map((m) => {
+        const list = m.item_ids.map((id) => catalog.items.find((i) => i.id === id)).filter(Boolean) as MenuItem[];
+        if (!list.length) return null;
+        return (
+          <section key={m.id} className="grid gap-3">
+            <h2 className="font-display text-2xl font-bold flex items-center gap-2">{n(m)} <Pill tone="accent">{t("stn.forYou")}</Pill></h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {list.map((it) => (
+                <ItemCard key={it.id} item={it} onAdd={() => onAddClick(it)} inCart={cart.filter((l) => l.menu_item_id === it.id).reduce((a, l) => a + l.qty, 0)} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {cats.length === 0 && !mine?.menus.length ? <Empty>{t("common.none")}</Empty> : null}
 
       {cats.map((c) => (
         <section key={c.id} ref={(el) => { sectionRefs.current[c.id] = el; }} className="grid gap-3 scroll-mt-40">
@@ -107,6 +142,7 @@ export function MenuView({ catalog, place, onRefresh }: { catalog: Catalog; plac
         setCart={setCart}
         catalog={catalog}
         place={place}
+        station={mine?.station ?? null}
         total={cartTotal}
         onSent={(code, orderId) => {
           setCart([]);
@@ -271,14 +307,14 @@ function OptionSheetBody({ item, onClose, onAdd }: { item: MenuItem; onClose: ()
 }
 
 type CheckoutProps = {
-  open: boolean; onClose: () => void; cart: CartLine[]; setCart: (f: (c: CartLine[]) => CartLine[]) => void; catalog: Catalog; place: QrPlace | null; total: number; onSent: (code: string | null, orderId: string) => void;
+  open: boolean; onClose: () => void; cart: CartLine[]; setCart: (f: (c: CartLine[]) => CartLine[]) => void; catalog: Catalog; place: QrPlace | null; station: { id: string; name: string } | null; total: number; onSent: (code: string | null, orderId: string) => void;
 };
 
 function CheckoutSheet(props: CheckoutProps) {
   return props.open ? <CheckoutSheetBody {...props} /> : null;
 }
 
-function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, total, onSent }: CheckoutProps) {
+function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, station, total, onSent }: CheckoutProps) {
   const { t, n, money, lang } = useI18n();
   const errText = useErrorText();
   const toast = useToast();
@@ -291,26 +327,29 @@ function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, total
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderId] = useState(() => crypto.randomUUID());
+  const [toStation, setToStation] = useState(!!station);
 
-  const valid = cart.length > 0 && (useCode ? /^\d{4,6}$/.test(code.trim()) : isValidPhone(phone));
+  // Charging the station needs both phone and code, so a known phone alone can't run up its tab.
+  const valid = cart.length > 0 && (toStation ? /^\d{4,6}$/.test(code.trim()) && isValidPhone(phone) : useCode ? /^\d{4,6}$/.test(code.trim()) : isValidPhone(phone));
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      const res = await rpc<{ order_id: string; customer_code: string | null; name: string | null }>("customer_place_order", {
+      const res = await rpc<{ order_id: string; customer_code: string | null; name: string | null }>("customer_place_order2", {
         p_order_id: orderId,
         p_token: place?.token ?? null,
-        p_phone: useCode ? "" : normalizePhone(phone),
-        p_code: useCode ? code.trim() : null,
+        p_phone: toStation || !useCode ? normalizePhone(phone) : "",
+        p_code: toStation || useCode ? code.trim() : null,
         p_name: name.trim(),
         p_items: cart.map((l) => ({ menu_item_id: l.menu_item_id, qty: l.qty, options: l.options.map((o) => ({ group_id: o.group_id, choice_id: o.choice_id })), note: l.note })),
         p_note: note.trim(),
+        p_to_station: toStation,
       });
       const prev = getIdentity();
       setIdentity({
-        phone: useCode ? prev.phone : normalizePhone(phone),
-        code: res.customer_code ?? (useCode ? code.trim() : prev.phone === normalizePhone(phone) ? prev.code : ""),
+        phone: useCode && !toStation ? prev.phone : normalizePhone(phone),
+        code: res.customer_code ?? (useCode || toStation ? code.trim() : prev.phone === normalizePhone(phone) ? prev.code : ""),
         name: name.trim() || res.name || prev.name,
       });
       addMyOrder(res.order_id);
@@ -368,7 +407,18 @@ function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, total
 
       <fieldset className="grid gap-3">
         <legend className="font-display text-lg font-bold mb-1">{t("c.whoAreYou")}</legend>
-        {useCode ? (
+        {station ? <Toggle checked={toStation} onChange={setToStation} label={t("stn.chargeStation", { name: station.name })} /> : null}
+        {toStation ? (
+          <>
+            <p className="text-sm text-muted">{t("stn.needCode")}</p>
+            <Field label={t("common.phone")}>
+              <Input id="order-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="01xxxxxxxxx" />
+            </Field>
+            <Field label={t("common.code")}>
+              <Input id="order-code" numeric inputMode="numeric" value={code} maxLength={6} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} autoComplete="off" />
+            </Field>
+          </>
+        ) : useCode ? (
           <Field label={t("common.code")}>
             <Input id="order-code" numeric inputMode="numeric" value={code} maxLength={6} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} autoComplete="off" />
           </Field>
@@ -377,9 +427,11 @@ function CheckoutSheetBody({ open, onClose, cart, setCart, catalog, place, total
             <Input id="order-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="01xxxxxxxxx" />
           </Field>
         )}
-        <button type="button" className="text-sm font-semibold underline justify-self-start" onClick={() => setUseCode((x) => !x)}>
-          {useCode ? t("c.usePhone") : t("c.useCode")}
-        </button>
+        {toStation ? null : (
+          <button type="button" className="text-sm font-semibold underline justify-self-start" onClick={() => setUseCode((x) => !x)}>
+            {useCode ? t("c.usePhone") : t("c.useCode")}
+          </button>
+        )}
         <Field label={t("common.nameOptional")}>
           <Input id="order-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoComplete="name" />
         </Field>
