@@ -47,7 +47,7 @@ export function EventsApp() {
       <header className="tile-stripe sticky top-0 z-30 bg-bg/95 backdrop-blur border-b-2 border-line" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="mx-auto max-w-3xl flex items-center justify-between gap-3 py-3" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" aria-label="dot"><Logo className="h-8" /></Link>
+            <Link href="/" aria-label="dots"><Logo className="h-8" /></Link>
             <span className="font-display text-xl font-bold">{t("ev.title")}</span>
           </div>
           <div className="flex items-center gap-3">

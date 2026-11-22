@@ -15,8 +15,8 @@ import { SampleEvents } from "./SampleEvents";
 // three.js loads after the page is interactive; the story reads fine before it arrives.
 const Diorama = dynamic(() => import("./Diorama").then((m) => m.Diorama), { ssr: false });
 
-// The page is one day at dot. Scrolling (or dragging along the timeline) moves the clock
-// from morning to 3 AM (dot never closes): the sun crosses a 3D model of the place, shadows move, the rooms
+// The page is one day at dots. Scrolling (or dragging along the timeline) moves the clock
+// from morning to 3 AM (dots never closes): the sun crosses a 3D model of the place, shadows move, the rooms
 // light up at night, and the word on screen changes with the hour.
 const TEAL = "#173a39";
 const NIGHT = "#081716";
@@ -489,7 +489,7 @@ function Call() {
         </div>
         {/* Footer: the brand on one side; staff sign-in kept small and out of the way on the other. */}
         <div className="mt-16 pt-6 border-t flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-sm" style={{ borderColor: `${SAGE}22`, paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))" }}>
-          <span className="flex items-center gap-3 opacity-70"><Logo ink={SAGE} className="h-6" /> dotcowork.space</span>
+          <span className="flex items-center gap-3 opacity-70"><Logo ink={SAGE} className="h-6" /> dotswork.space</span>
           <a href="/staff" className="text-xs opacity-45 hover:opacity-90 underline underline-offset-4 whitespace-nowrap">{t("l.staff")}</a>
         </div>
       </div>

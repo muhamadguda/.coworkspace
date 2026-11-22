@@ -1,6 +1,6 @@
 # dot: co-working space & café — product spec
 
-Live at **https://dotcowork.space** (customer page) and **https://dotcowork.space/staff** (counter).
+Live at **https://dotswork.space** (customer site) and **https://dotcowork.space/staff** (counter).
 
 Two surfaces:
 

@@ -23,7 +23,7 @@ export function printQrCards(cards: QrCard[], lang: Lang) {
     .map((c) => {
       const svg = dotQrSvg(c.value, { label: c.titleEn });
       const lines = (c.lines ?? []).map((l) => `<div class="line"><span>${esc(l.label)}</span><b dir="ltr">${esc(l.value)}</b></div>`).join("");
-      return `<div class="card"><div class="ar">${esc(c.titleAr)}</div><div class="en">${esc(c.titleEn)}</div><div class="qr">${svg}</div>${lines}<div class="cta">${esc(c.ctaAr)} · ${esc(c.ctaEn)}</div><div class="brand">dot</div></div>`;
+      return `<div class="card"><div class="ar">${esc(c.titleAr)}</div><div class="en">${esc(c.titleEn)}</div><div class="qr">${svg}</div>${lines}<div class="cta">${esc(c.ctaAr)} · ${esc(c.ctaEn)}</div><div class="brand">dots</div></div>`;
     })
     .join("");
   printHtml(`<!doctype html><html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>QR</title><style>

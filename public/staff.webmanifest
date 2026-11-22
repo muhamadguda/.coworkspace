@@ -1,8 +1,8 @@
 {
   "id": "/staff",
-  "name": "dot · الكاونتر",
-  "short_name": "dot staff",
-  "description": "dot counter: rooms, orders, visits and the cash drawer.",
+  "name": "dots · الكاونتر",
+  "short_name": "dots staff",
+  "description": "dots counter: rooms, orders, visits and the cash drawer.",
   "start_url": "/staff",
   "scope": "/",
   "display": "standalone",

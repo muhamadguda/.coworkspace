@@ -10,6 +10,7 @@ import { openWhatsApp, waNumber } from "@/lib/phone";
 import { printHtml } from "@/lib/print";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, Textarea, Toggle, cx, useToast } from "@/components/ui";
 import { uuid } from "../store";
+import { customerOrigin } from "@/lib/site";
 import { useNow, useOnline, useSnap } from "../hooks";
 
 type EventRow = {
@@ -256,7 +257,7 @@ function SignupsSheet({ e, list, onClose, onChanged }: { e: EventRow; list: Sign
   }
 
   function poster() {
-    const url = `${location.origin}/events#${e.id}`;
+    const url = `${customerOrigin()}/events#${e.id}`;
     const qr = dotQrSvg(url, { label: e.title_en });
     const when = new Intl.DateTimeFormat(lang === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Cairo" }).format(new Date(e.starts_at));
     const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -265,7 +266,7 @@ function SignupsSheet({ e, list, onClose, onChanged }: { e: EventRow; list: Sign
       .wrap { border: 3px solid #173a39; border-top: 14px solid #d9a21b; padding: 14mm 10mm; display: grid; gap: 6mm; justify-items: center; }
       h1 { font-size: 40px; margin: 0; } h2 { font-size: 22px; margin: 0; font-weight: 600; } .when { font-size: 20px; font-weight: 700; }
       .qr svg { width: 90mm; height: 90mm; } .cta { font-size: 18px; font-weight: 700; } .brand { letter-spacing: .3em; font-size: 14px; }
-    </style></head><body><div class="wrap"><h1>${esc(e.title_ar)}</h1><h2>${esc(e.title_en)}</h2><div class="when">${esc(when)}</div><div class="qr">${qr}</div><div class="cta">${esc(t("ev.scanToJoin"))} · Scan to save your seat</div><div class="brand">dot · dotcowork.space/events</div></div></body></html>`);
+    </style></head><body><div class="wrap"><h1>${esc(e.title_ar)}</h1><h2>${esc(e.title_en)}</h2><div class="when">${esc(when)}</div><div class="qr">${qr}</div><div class="cta">${esc(t("ev.scanToJoin"))} · Scan to save your seat</div><div class="brand">dots · dotswork.space/events</div></div></body></html>`);
   }
 
   function exportCsv() {

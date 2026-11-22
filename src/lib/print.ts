@@ -50,7 +50,7 @@ ${d.lines
 ${d.totals.map((t) => row(esc(t.label), formatMoney(t.value), t.strong ? "strong" : "")).join("")}
 ${d.payments?.length ? `<hr>${d.payments.map((p) => row(esc(p.label), formatMoney(p.value))).join("")}` : ""}
 ${d.note ? `<hr><div class="small">${esc(d.note)}</div>` : ""}
-<hr><div class="c small">${esc(d.venue.footer)}</div><div class="c small">dotcowork.space</div>
+<hr><div class="c small">${esc(d.venue.footer)}</div><div class="c small">dotswork.space</div>
 </body></html>`;
 }
 

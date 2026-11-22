@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const alt = "dot · co-working space and café";
+export const alt = "dots · co-working space and café";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -23,10 +23,10 @@ export default async function Image() {
         </div>
         <div style={{ position: "absolute", left: 80, top: 120, right: 80, bottom: 90, display: "flex", flexDirection: "column", justifyContent: "space-between", background: "rgba(14,31,30,0.9)", border: "4px solid #eaf0ea", borderTop: "16px solid #d9a21b", padding: "48px 56px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logo} width={282} height={158} alt="" />
+          <img src={logo} width={362} height={158} alt="" />
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ color: "#eaf0ea", fontSize: 64, fontWeight: 700, letterSpacing: -1 }}>Focus. Work. Play.</div>
-            <div style={{ color: "#b9c8c0", fontSize: 30 }}>Co-working · café · rooms by the hour · dotcowork.space</div>
+            <div style={{ color: "#b9c8c0", fontSize: 30 }}>Co-working · café · rooms by the hour · dotswork.space</div>
           </div>
         </div>
       </div>

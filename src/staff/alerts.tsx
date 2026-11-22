@@ -139,7 +139,7 @@ export function useAlerts(goto: (tab: string, focus?: string) => void) {
   }, [muted]);
 
   useEffect(() => {
-    const base = "dot · Staff";
+    const base = "dots · Staff";
     document.title = alerts.length ? `(${alerts.length}) ${base}` : base;
   }, [alerts.length]);
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-// A small 3D model of dot: a cement-tile floor, the rooms standing on it, tables and the counter.
+// A small 3D model of dots: a cement-tile floor, the rooms standing on it, tables and the counter.
 // `progress` (0 = morning, 1 = 3 AM) drives the sun/moon, light, sky and the rooms' lights.
 // Tiles lift under the pointer and ripple on tap.
 
