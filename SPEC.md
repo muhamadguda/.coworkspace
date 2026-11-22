@@ -100,3 +100,10 @@ Arabic (Egyptian dialect) is the default, with a visible English switch. Numbers
 Everything below exports to **CSV** (opens in Excel, Arabic included). A **System health** panel lists app errors from the last 30 days.
 
 Revenue and collections by method, room fees vs food and drinks, discounts, new pay-later and debt collected, removed items, revenue by day, room usage per room and mode, top items, outstanding balances, cash drawer closes with differences, cash outs, and cancelled orders. Ranges: today, yesterday, last 7 days, this month, or custom.
+
+## Stations and custom menus (owner)
+
+- A **station** is a private account, like a table or room (Station 1, Station 2…). It is not bookable and never shows publicly. The owner creates it under **Stations** and adds people by phone (one station per person).
+- Members order **on the station account** from the menu, with no room session: they toggle "Charge to Station N" and give phone **and** code. The order arrives as New like any order, with the member's name and phone in the note, and lands on the station's own open bill (never tied to a room). The counter settles that bill from Bills like any other, including pay later within the station's limit (set on the Stations screen).
+- A **custom menu** is a set of items the owner picks. People added to it by phone see it at the top of their menu (on a device that knows their phone and code). Every station has its own custom menu for its members.
+- An item marked **Only on custom menus** is hidden from the public menu; the server refuses it in any customer order unless it is on that person's menus. Staff can still add it to any bill.

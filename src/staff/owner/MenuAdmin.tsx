@@ -42,7 +42,7 @@ export function MenuAdmin() {
                     <img src={i.image_url} alt="" className="size-10 object-cover rounded-[2px]" />
                   ) : <span aria-hidden className="size-10 rounded-[2px] tile-pattern" />}
                   <span className="flex-1 min-w-0 grid">
-                    <span className="font-semibold truncate">{i.name_ar} · {i.name_en}</span>
+                    <span className="font-semibold truncate">{i.name_ar} · {i.name_en} {i.public === false ? <Pill tone="accent">{t("stn.privatePill")}</Pill> : null}</span>
                     <span className="num text-sm text-muted">{money(i.price)}{i.options.length ? ` · ${i.options.map((g) => n(g)).join(", ")}` : ""}</span>
                   </span>
                   <Toggle checked={!i.available} onChange={(v) => dispatch("set_item_available", { menu_item_id: i.id, available: !v })} label={t("m.soldOutToggle")} />
@@ -134,7 +134,7 @@ function ItemSheet({ item, onClose }: { item: Partial<MenuItem>; onClose: () => 
     const row = {
       category_id: v.category_id, name_ar: v.name_ar!.trim(), name_en: v.name_en!.trim(), desc_ar: (v.desc_ar ?? "").trim(), desc_en: (v.desc_en ?? "").trim(),
       price: Number(v.price) || 0, options: clean, available: !!v.available, active: !!v.active, sort: Number(v.sort) || 0, image_url: v.image_url ?? null,
-      track_stock: !!v.track_stock, low_stock_at: Math.max(0, Number(v.low_stock_at) || 0),
+      public: v.public !== false, track_stock: !!v.track_stock, low_stock_at: Math.max(0, Number(v.low_stock_at) || 0),
     };
     const ok = await save(() => (item.id ? supabase().from("menu_items").update(row).eq("id", item.id) : supabase().from("menu_items").insert(row)));
     setBusy(false);
@@ -159,6 +159,7 @@ function ItemSheet({ item, onClose }: { item: Partial<MenuItem>; onClose: () => 
       <div className="flex flex-wrap gap-4">
         <Toggle checked={!!v.available} onChange={(x) => setV({ ...v, available: x })} label={t("m.available")} />
         <Toggle checked={!!v.active} onChange={(x) => setV({ ...v, active: x })} label={t("m.visible")} />
+        <Toggle checked={v.public === false} onChange={(x) => setV({ ...v, public: !x })} label={t("stn.privateItem")} />
       </div>
 
       <div className="grid gap-2 border-2 border-line rounded-[2px] p-3">

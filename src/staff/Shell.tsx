@@ -19,13 +19,14 @@ import { CustomersView } from "./views/Customers";
 import { DayView } from "./views/Day";
 import { EventsAdmin } from "./owner/EventsAdmin";
 import { MenuAdmin } from "./owner/MenuAdmin";
+import { StationsAdmin } from "./owner/StationsAdmin";
 import { SettingsAdmin } from "./owner/SettingsAdmin";
 import { TeamAdmin } from "./owner/TeamAdmin";
 import { Reports } from "./owner/Reports";
 import { Guide } from "./Guide";
 
-type Tab = "board" | "orders" | "bills" | "bookings" | "customers" | "day" | "menu" | "events" | "settings" | "team" | "reports" | "guide";
-const OWNER_TABS: Tab[] = ["menu", "events", "settings", "team", "reports"];
+type Tab = "board" | "orders" | "bills" | "bookings" | "customers" | "day" | "menu" | "stations" | "events" | "settings" | "team" | "reports" | "guide";
+const OWNER_TABS: Tab[] = ["menu", "stations", "events", "settings", "team", "reports"];
 
 export function Shell() {
   const { t } = useI18n();
@@ -83,6 +84,7 @@ export function Shell() {
     ...(isOwner
       ? ([
           { id: "menu", label: t("s.nav.menu") },
+          { id: "stations", label: t("stn.nav") },
           { id: "events", label: t("s.nav.events") },
           { id: "settings", label: t("s.nav.settings") },
           { id: "team", label: t("s.nav.team") },
@@ -138,6 +140,7 @@ export function Shell() {
         {active === "customers" && <CustomersView />}
         {active === "day" && <DayView />}
         {active === "menu" && <MenuAdmin />}
+        {active === "stations" && <StationsAdmin />}
         {active === "events" && <EventsAdmin />}
         {active === "settings" && <SettingsAdmin />}
         {active === "team" && <TeamAdmin />}
@@ -349,6 +352,7 @@ function TabIcon({ id }: { id: Tab }) {
     customers: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a6 6 0 0 1 3.5 6",
     day: "M3 7h18v10H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 10v4M18 10v4",
     menu: "M5 5h14M5 10h14M5 15h14M5 20h9",
+    stations: "M3 5h18v11H3zM8 20h8M12 16v4",
     events: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z",
     settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1L15 3.5h-4L10.6 6a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
     team: "M4 5h16v14H4zM9 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5.5 17a3.5 3.5 0 0 1 7 0M14 9h4M14 13h3",
