@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "2.118.0",
     "@vercel/analytics": "^2.0.1",
     "idb-keyval": "6.3.0",
-    "next": "16.4.4",
+    "next": "16.4.6",
     "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -32,7 +32,7 @@
     "@types/three": "0.186.0",
     "@types/web-push": "3.6.4",
     "eslint": "^9",
-    "eslint-config-next": "16.4.4",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
