@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Button, Sheet } from "./ui";
 
-// Install dot as an app.
+// Install dots as an app.
 // First visit: a full prompt a few seconds in. Second visit onward: a slim banner.
 // Nothing shows once installed, when running as the installed app, or while snoozed.
 // Android / desktop Chrome & Edge get the browser's own install dialog (beforeinstallprompt);

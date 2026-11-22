@@ -9,13 +9,13 @@ const plexAr = IBM_Plex_Sans_Arabic({ variable: "--font-plex-ar", subsets: ["ara
 const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["500", "600"] });
 
 export const metadata: Metadata = {
-  title: { default: "dot · co-working & café", template: "%s · dot" },
-  description: "dot co-working space and café: order from your table, check your bill, book a room.",
-  applicationName: "dot",
-  metadataBase: new URL("https://dotcowork.space"),
-  appleWebApp: { capable: true, title: "dot", statusBarStyle: "default" },
-  keywords: ["co-working", "coworking space", "café", "study space", "meeting room", "PlayStation", "مساحة عمل", "كوورك", "مذاكرة", "قاعة اجتماعات", "dot"],
-  openGraph: { siteName: "dot", type: "website", locale: "ar_EG", alternateLocale: ["en_US"], url: "https://dotcowork.space" },
+  title: { default: "dots · co-working & café", template: "%s · dots" },
+  description: "dots co-working space and café: order from your table, check your bill, book a room.",
+  applicationName: "dots",
+  metadataBase: new URL("https://www.dotswork.space"),
+  appleWebApp: { capable: true, title: "dots", statusBarStyle: "default" },
+  keywords: ["co-working", "coworking space", "café", "study space", "meeting room", "PlayStation", "مساحة عمل", "كوورك", "مذاكرة", "قاعة اجتماعات", "dots"],
+  openGraph: { siteName: "dots", type: "website", locale: "ar_EG", alternateLocale: ["en_US"], url: "https://www.dotswork.space" },
   twitter: { card: "summary_large_image" },
   formatDetection: { telephone: false },
 };

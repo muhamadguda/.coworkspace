@@ -7,6 +7,7 @@ import { errorCode, rpc, supabase } from "@/lib/supabase";
 import type { BundlePlan, HappyHour, Mode, Place, Settings } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, SectionTitle, Select, Sheet, Toggle, cx, useToast } from "@/components/ui";
 import { refresh } from "../store";
+import { customerOrigin } from "@/lib/site";
 import { useOnline, useSnap } from "../hooks";
 
 export function SettingsAdmin() {
@@ -61,7 +62,7 @@ function GeneralSettings() {
   async function save() {
     setBusy(true);
     const row = {
-      venue_name: v.venue_name.trim() || "dot", venue_address: v.venue_address.trim(), venue_whatsapp: v.venue_whatsapp.trim(),
+      venue_name: v.venue_name.trim() || "dots", venue_address: v.venue_address.trim(), venue_whatsapp: v.venue_whatsapp.trim(),
       receipt_footer_ar: v.receipt_footer_ar.trim(), receipt_footer_en: v.receipt_footer_en.trim(),
       min_session_minutes: Number(v.min_session_minutes) || 0, billing_step_minutes: Math.max(1, Number(v.billing_step_minutes) || 1),
       grace_minutes: Number(v.grace_minutes) || 0, day_rollover_hour: Number(v.day_rollover_hour) || 0, booking_warning_minutes: Number(v.booking_warning_minutes) || 0,
@@ -394,7 +395,7 @@ function PrintQrs() {
   const { t, lang } = useI18n();
   const snap = useSnap();
   const st = snap.settings;
-  const o = typeof location === "undefined" ? "https://dotcowork.space" : location.origin;
+  const o = customerOrigin();
   const items: { key: string; label: string; hint: string; card: QrCard | null }[] = [
     { key: "menu", label: t("qr.menu"), hint: "/menu", card: { value: `${o}/menu`, titleAr: "المنيو", titleEn: "Menu", ctaAr: "امسح واطلب", ctaEn: "Scan to order" } },
     { key: "book", label: t("qr.book"), hint: "/menu?tab=book", card: { value: `${o}/menu?tab=book`, titleAr: "احجز أوضة", titleEn: "Book a room", ctaAr: "امسح واحجز", ctaEn: "Scan to book" } },
@@ -421,7 +422,7 @@ function PrintQrs() {
   );
 }
 
-const orderUrl = (token: string) => `${location.origin}/menu?t=${token}`;
+const orderUrl = (token: string) => `${customerOrigin()}/menu?t=${token}`;
 
 function PlacesSettings() {
   const { t, n, lang } = useI18n();
@@ -435,7 +436,7 @@ function PlacesSettings() {
   const places = [...snap.places].sort((a, b) => a.kind.localeCompare(b.kind) || a.sort - b.sort);
 
   function printQrs() {
-    printQrCards(places.filter((p) => p.active && p.qr_token).map((p) => placeCard({ ...p, qr_token: p.qr_token! }, location.origin)), lang);
+    printQrCards(places.filter((p) => p.active && p.qr_token).map((p) => placeCard({ ...p, qr_token: p.qr_token! }, customerOrigin())), lang);
   }
 
   return (
@@ -456,7 +457,7 @@ function PlacesSettings() {
             </span>
             <span className="flex items-center gap-2">
               {p.qr_token ? <a className="num text-xs underline text-muted" href={orderUrl(p.qr_token)} target="_blank" rel="noreferrer">/menu?t={p.qr_token}</a> : null}
-              {p.qr_token && p.active ? <Button size="sm" onClick={() => printQrCards([placeCard({ ...p, qr_token: p.qr_token! }, location.origin)], lang)}>{t("qr.print")}</Button> : null}
+              {p.qr_token && p.active ? <Button size="sm" onClick={() => printQrCards([placeCard({ ...p, qr_token: p.qr_token! }, customerOrigin())], lang)}>{t("qr.print")}</Button> : null}
               <Button size="sm" disabled={!online} onClick={() => setConfirmRegen(p)}>{t("st.regenQr")}</Button>
               <Button size="sm" disabled={!online} onClick={() => setEdit(p)}>{t("common.edit")}</Button>
             </span>

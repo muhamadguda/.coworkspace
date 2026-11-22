@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { Button, Card, Segmented } from "@/components/ui";
 import { useIsOwner } from "./hooks";
 
-// How to use dot, for the counter and the owner. Button names match the app's labels.
+// How to use dots, for the counter and the owner. Button names match the app's labels.
 type L = { ar: string; en: string };
 type Section = { id: string; title: L; steps: L[]; tip?: L };
 
@@ -146,7 +146,7 @@ const OWNER: Section[] = [
     title: { ar: "الإيفنتات", en: "Events" },
     steps: [
       { ar: "«الإيفنتات ← إيفنت جديد»: الاسم بالعربي والإنجليزي، الميعاد، السعر (٠ = ببلاش)، عدد الأماكن، وصورة.", en: "“Events → New event”: title in Arabic and English, time, price (0 = free), seats, and an image." },
-      { ar: "الإيفنت بيظهر في dotcowork.space/events وعلى الصفحة الرئيسية. الناس بتحجز بالاسم والرقم، والدفع في المكان.", en: "It appears on dotcowork.space/events and the home page. People sign up with name and phone; they pay at the venue." },
+      { ar: "الإيفنت بيظهر في dotswork.space/events وعلى الصفحة الرئيسية. الناس بتحجز بالاسم والرقم، والدفع في المكان.", en: "It appears on dotcowork.space/events and the home page. People sign up with name and phone; they pay at the venue." },
       { ar: "«المسجلين»: مين جاي، واتساب لكل واحد، علّم اللي حضر، ونزّل CSV. «اطبع بوستر» بيطلع بوستر بكود يحجز على طول.", en: "“Sign-ups”: who's coming, WhatsApp each one, mark who came, download CSV. “Print poster” gives a poster with a sign-up code." },
       { ar: "كل تسجيل جديد بيوصلك تنبيه.", en: "Every new sign-up sends you a notification." },
     ],
@@ -181,7 +181,7 @@ export function Guide() {
   return (
     <div className="grid gap-4 max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-3xl font-bold">{lang === "ar" ? "إزاي تستخدم dot" : "How to use dot"}</h2>
+        <h2 className="font-display text-3xl font-bold">{lang === "ar" ? "إزاي تستخدم dots" : "How to use dots"}</h2>
         <div className="flex items-center gap-2 print:hidden">
           {isOwner ? (
             <Segmented value={who} onChange={setWho} options={[{ value: "staff", label: lang === "ar" ? "الكاونتر" : "Counter" }, { value: "owner", label: lang === "ar" ? "صاحب المكان" : "Owner" }]} />

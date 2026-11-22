@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "dot · co-working & café",
-    short_name: "dot",
-    description: "Order, check your bill, and book a room at dot.",
+    name: "dots · co-working & café",
+    short_name: "dots",
+    description: "Order, check your bill, and book a room at dots.",
     id: "/menu",
     start_url: "/menu",
     scope: "/",

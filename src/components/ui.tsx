@@ -204,11 +204,12 @@ export function Sheet({ open, onClose, title, children, footer, wide }: { open: 
 export function Logo({ className, light, ink: fixed }: { className?: string; light?: boolean; ink?: string }) {
   const ink = fixed ?? (light ? "var(--bg)" : "var(--strong)");
   return (
-    <svg viewBox="-4 -4 282 158" className={cx("h-7 w-auto", className)} role="img" aria-label="dot">
+    <svg viewBox="-4 -4 362 158" className={cx("h-7 w-auto", className)} role="img" aria-label="dots">
       <path fill={ink} fillRule="evenodd" d="M0,100a50,50 0 1,0 100,0a50,50 0 1,0 -100,0zM20,100a30,30 0 1,1 60,0a30,30 0 1,1 -60,0z" />
       <path fill={ink} d="M80,150V10a10,10 0 0,1 20,0V150z" />
       <path fill={ink} d="M232,150V28a10,10 0 0,1 20,0V150z" />
       <rect fill={ink} x="212" y="52" width="60" height="20" />
+      <path fill="none" stroke={ink} strokeWidth="20" d="M337.3,70A20,20 0 1,0 320,100A20,20 0 1,1 302.7,130" />
       <circle cx="162" cy="100" r="44" fill="var(--accent)" />
     </svg>
   );

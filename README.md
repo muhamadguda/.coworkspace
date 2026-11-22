@@ -2,8 +2,8 @@
 
 Co-working space and café app: customers order from their table by QR, check their bill, and book rooms; the counter runs rooms, tables, orders, checkout and the cash drawer, and keeps working offline.
 
-- Customer page: https://dotcowork.space
-- Counter: https://dotcowork.space/staff
+- Customer site: https://dotswork.space
+- Staff (counter): https://dotcowork.space/staff
 - Product spec: [SPEC.md](SPEC.md)
 
 ## Stack
@@ -79,7 +79,7 @@ To run the browser tests locally (needs Docker): `supabase start`, create the ow
 
 ## Branches and deploys
 
-- `main` is production: a push to `main` deploys to dotcowork.space. Set this in Vercel → Settings → Environments → Production → Branch Tracking.
+- `main` is production: a push to `main` deploys to dotswork.space (customers) and dotcowork.space (staff). Set this in Vercel → Settings → Environments → Production → Branch Tracking.
 - Work branches get preview deploys and the same CI.
 
 ## Backups

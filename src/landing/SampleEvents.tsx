@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { EventsNotify } from "@/components/EventsNotify";
 
-// The kind of nights dot hosts. Photos are free-licensed from Wikimedia Commons; each card
+// The kind of nights dots hosts. Photos are free-licensed from Wikimedia Commons; each card
 // credits its photographer and license (CC BY / BY-SA need it; public domain gets it anyway).
 const W = "https://upload.wikimedia.org/wikipedia/commons/thumb";
 const C = "https://commons.wikimedia.org/wiki/File:";
@@ -24,7 +24,7 @@ const SAGE = "#eaf0ea";
 const MUSTARD = "#d9a21b";
 const TEAL = "#173a39";
 
-/** "Nights at dot": cards that swipe by themselves, stop when touched, and wait while off screen. */
+/** "Nights at dots": cards that swipe by themselves, stop when touched, and wait while off screen. */
 export function SampleEvents() {
   const { t, lang } = useI18n();
   const track = useRef<HTMLUListElement>(null);

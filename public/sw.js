@@ -1,4 +1,4 @@
-// dot service worker: keeps the app shell available offline so the counter
+// dots service worker: keeps the app shell available offline so the counter
 // can reload /staff without internet. Data sync is handled by the app itself.
 const VERSION = "dot-v5";
 const SHELL = ["/", "/menu", "/staff", "/logo-wordmark.svg", "/logo-mark.svg", "/icons/icon-192.png"];
