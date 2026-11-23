@@ -18,7 +18,10 @@ const jsonLd = {
   hasMap: VENUE.mapUrl,
   priceRange: "EGP",
   currenciesAccepted: "EGP",
-  address: { "@type": "PostalAddress", addressCountry: "EG" },
+  address: { "@type": "PostalAddress", addressCountry: "EG", ...(VENUE.street ? { streetAddress: VENUE.street } : {}), ...(VENUE.city ? { addressLocality: VENUE.city } : {}) },
+  ...(VENUE.lat != null && VENUE.lng != null ? { geo: { "@type": "GeoCoordinates", latitude: VENUE.lat, longitude: VENUE.lng } } : {}),
+  ...(VENUE.links.length ? { sameAs: VENUE.links } : {}),
+  amenityFeature: ["Wi-Fi", "Open 24/7", "Meeting rooms by the hour", "PlayStation", "Shared work tables"].map((name) => ({ "@type": "LocationFeatureSpecification", name, value: true })),
   potentialAction: { "@type": "OrderAction", target: "https://www.dotswork.space/menu" },
   // Open around the clock, every day.
   openingHoursSpecification: [{ "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], opens: "00:00", closes: "23:59" }],

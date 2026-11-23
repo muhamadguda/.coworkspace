@@ -118,6 +118,7 @@ export const dict = {
   "l.visitTitle": ["تعالى زورنا", "Come by"],
   "l.visitLede": ["هنستناك. لو محتاج تحجز أو تسأل على حاجة، كلمنا.", "We'll be here. Call if you want to book or ask anything."],
   "l.staff": ["دخول الموظفين", "Staff sign in"],
+  "l.privacy": ["الخصوصية", "Privacy"],
 
   // customer
   "c.nav.menu": ["المنيو", "Menu"],

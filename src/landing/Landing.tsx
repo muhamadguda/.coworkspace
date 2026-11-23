@@ -490,7 +490,10 @@ function Call() {
         {/* Footer: the brand on one side; staff sign-in kept small and out of the way on the other. */}
         <div className="mt-16 pt-6 border-t flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-sm" style={{ borderColor: `${SAGE}22`, paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))" }}>
           <span className="flex items-center gap-3 opacity-70"><Logo ink={SAGE} className="h-6" /> dotswork.space</span>
+          <span className="flex items-center gap-4">
+          <a href="/privacy" className="text-xs opacity-60 hover:opacity-90 underline underline-offset-4 whitespace-nowrap">{t("l.privacy")}</a>
           <a href="/staff" className="text-xs opacity-45 hover:opacity-90 underline underline-offset-4 whitespace-nowrap">{t("l.staff")}</a>
+          </span>
         </div>
       </div>
     </section>
