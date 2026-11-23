@@ -136,7 +136,7 @@ export function Reports() {
   return (
     <div className="grid gap-5">
       <SectionNav label={t("rp.title")} items={[
-        { id: "rp-today", label: t("td.title") }, { id: "rp-totals", label: t("rp.title") },
+        { id: "rp-today", label: t("rp.today") }, { id: "rp-totals", label: t("rp.title") },
         ...(data ? [{ id: "rp-details", label: t("rp.details") }] : []),
         { id: "rp-calls", label: t("rp.calls") }, { id: "rp-health", label: t("rp.health") },
       ]} />
