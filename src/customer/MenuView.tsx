@@ -23,18 +23,19 @@ export function MenuView({ catalog: publicCatalog, place, onRefresh }: { catalog
   const [ordersTick, setOrdersTick] = useState(0);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  // Custom menus and station: only for a known phone + code on this device.
+  // Custom menus: for this place (the QR scanned) and, with a known phone + code, this person and their station.
+  const token = place?.token ?? null;
   useEffect(() => {
     const me = getIdentity();
-    if (!me.phone || !me.code) return;
+    if (!token && (!me.phone || !me.code)) return;
     let alive = true;
-    rpc<Mine>("customer_my_menus", { p_phone: me.phone, p_code: me.code })
+    rpc<Mine>("customer_menus2", { p_phone: me.phone || "", p_code: me.code || "", p_token: token })
       .then((r) => alive && setMine(r))
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [ordersTick]);
+  }, [ordersTick, token]);
   const catalog = useMemo<Catalog>(() => {
     const extra = (mine?.items ?? []).filter((i) => !publicCatalog.items.some((p) => p.id === i.id));
     return extra.length ? { ...publicCatalog, items: [...publicCatalog.items, ...extra] } : publicCatalog;
