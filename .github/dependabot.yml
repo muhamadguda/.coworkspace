@@ -1,0 +1,13 @@
+# Weekly update PRs. Minor/patch bumps are grouped so it stays one or two PRs a week.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: sunday, time: "06:00", timezone: Africa/Cairo }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
