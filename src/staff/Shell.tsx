@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { trackHeaderHeight } from "./SectionNav";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { currentSubscription, getPushSubscription, pushSupport } from "@/lib/push";
@@ -97,7 +98,7 @@ export function Shell() {
 
   return (
     <div className="min-h-dvh flex flex-col">
-      <header className="tile-stripe sticky top-0 z-30 bg-bg border-b-2 border-line print:hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header ref={trackHeaderHeight} className="tile-stripe sticky top-0 z-30 bg-bg border-b-2 border-line print:hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="flex items-center justify-between gap-3 py-2" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
           <div className="flex items-center gap-3 min-w-0">
             <Logo className="h-7" />

@@ -6,6 +6,7 @@ import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { businessDay, round2 } from "@/lib/billing";
 import { Button, Card, Empty, Field, Input, SectionTitle, Segmented, Spinner, cx } from "@/components/ui";
 import { useSnap } from "../hooks";
+import { NavSection, SectionNav } from "../SectionNav";
 import { TodayCard } from "./TodayCard";
 
 type Report = {
@@ -134,7 +135,13 @@ export function Reports() {
 
   return (
     <div className="grid gap-5">
-      <TodayCard />
+      <SectionNav label={t("rp.title")} items={[
+        { id: "rp-today", label: t("rp.today") }, { id: "rp-totals", label: t("rp.title") },
+        ...(data ? [{ id: "rp-details", label: t("rp.details") }] : []),
+        { id: "rp-calls", label: t("rp.calls") }, { id: "rp-health", label: t("rp.health") },
+      ]} />
+      <NavSection id="rp-today"><TodayCard /></NavSection>
+      <NavSection id="rp-totals" className="grid gap-5">
       <SectionTitle>{t("rp.title")}</SectionTitle>
       <div className="flex flex-wrap items-end gap-3">
         <Segmented value={range} onChange={pickRange} options={[
@@ -151,7 +158,7 @@ export function Reports() {
         <Button size="sm" className="ms-auto" disabled={!data} onClick={exportCsv}>{t("rp.exportCsv")}</Button>
       </div>
       {error ? <p className="text-busy font-semibold">{error}</p> : null}
-
+      {!data && !busy ? <Empty>{t("rp.empty")}</Empty> : null}
       {data ? (
         <>
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -179,8 +186,12 @@ export function Reports() {
               </div>
             </Card>
           ) : null}
+        </>
+      ) : null}
+      </NavSection>
 
-          <div className="grid gap-5 lg:grid-cols-2 items-start">
+      {data ? (
+          <NavSection id="rp-details" className="grid gap-5 lg:grid-cols-2 items-start">
             <Table title={t("rp.roomUsage")} empty={!data.room_usage.length} empty_text={t("rp.empty")}>
               {data.room_usage.map((r, i) => <Tr key={i} cells={[nm(r), lang === "ar" ? r.mode_ar : r.mode_en, dur(r.minutes), `${r.sessions} ${t("rp.sessions")}`]} />)}
               {data.room_fees_by_room.map((r, i) => <Tr key={`f${i}`} strong cells={[nm(r), t("rp.roomFees"), "", money(r.fee)]} />)}
@@ -209,13 +220,12 @@ export function Reports() {
             <Table title={t("rp.voided")} empty={!(data.voided_items ?? []).length} empty_text={t("rp.empty")}>
               {(data.voided_items ?? []).map((r, i) => <Tr key={i} cells={[time(r.at), `${nm(r)} × ${r.qty}`, r.reason, r.by, money(r.amount)]} />)}
             </Table>
-          </div>
-        </>
-      ) : !busy ? <Empty>{t("rp.empty")}</Empty> : null}
+          </NavSection>
+      ) : null}
 
-      <CallsAndChecks key={`${from}:${to}`} from={from} to={to} />
+      <NavSection id="rp-calls"><CallsAndChecks key={`${from}:${to}`} from={from} to={to} /></NavSection>
 
-      <Card className="p-4 grid gap-2">
+      <NavSection id="rp-health"><Card className="p-4 grid gap-2">
         <h3 className="font-semibold">{t("rp.health")}</h3>
         {errors === null ? <Spinner /> : errors.length === 0 ? (
           <p className="text-sm text-free font-semibold">{t("rp.healthOk")}</p>
@@ -227,7 +237,7 @@ export function Reports() {
           </div>
         )}
         <p className="text-xs text-muted">{t("rp.healthHint")}</p>
-      </Card>
+      </Card></NavSection>
     </div>
   );
 }

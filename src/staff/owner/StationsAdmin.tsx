@@ -6,6 +6,7 @@ import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { round2 } from "@/lib/billing";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Toggle, cx, useToast } from "@/components/ui";
+import { NavSection, SectionNav } from "../SectionNav";
 import { useOnline, useSnap } from "../hooks";
 
 type Member = { customer_id: string; phone: string; name: string };
@@ -64,6 +65,8 @@ export function StationsAdmin() {
   return (
     <div className="grid gap-6">
       {!online ? <p className="text-busy font-semibold">{t("m.onlineOnly")}</p> : null}
+      <SectionNav label={t("stn.nav")} items={[{ id: "stn-stations", label: t("stn.nav") }, { id: "stn-menus", label: t("stn.menus") }]} />
+      <NavSection id="stn-stations" className="grid gap-6">
       <SectionTitle action={<Button size="sm" variant="accent" busy={busy} disabled={!online} onClick={() => run(() => rpc("owner_create_station", { p_name: "" }))}>{t("stn.new")}</Button>}>
         {t("stn.nav")}
       </SectionTitle>
@@ -72,7 +75,9 @@ export function StationsAdmin() {
       {data.stations.map((s) => (
         <StationCard key={s.id} s={s} menu={data.menus.find((m) => m.id === s.menu_id) ?? null} busy={busy || !online} run={run} db={db} />
       ))}
+      </NavSection>
 
+      <NavSection id="stn-menus" className="grid gap-6">
       <SectionTitle action={<Button size="sm" busy={busy} disabled={!online} onClick={() => run(() => db(supabase().from("custom_menus").insert({ name_ar: t("stn.menuDefault"), name_en: "Custom menu" })))}>{t("stn.newMenu")}</Button>}>
         {t("stn.menus")}
       </SectionTitle>
@@ -80,6 +85,7 @@ export function StationsAdmin() {
       {data.menus.filter((m) => !m.station_id).map((m) => (
         <MenuCard key={m.id} m={m} busy={busy || !online} run={run} db={db} withMembers targetsCtx={{ stations: data.stations, events: data.events ?? [] }} />
       ))}
+      </NavSection>
     </div>
   );
 }

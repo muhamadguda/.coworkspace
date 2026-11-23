@@ -467,6 +467,7 @@ export const dict = {
   "m.onlineOnly": ["التعديل ده محتاج نت.", "Editing needs an internet connection."],
 
   // owner: settings
+  "st.general": ["عام", "General"],
   "st.venue": ["المكان", "Venue"],
   "st.venueName": ["اسم المكان", "Venue name"],
   "st.address": ["العنوان", "Address"],
@@ -514,6 +515,7 @@ export const dict = {
 
   // owner: reports
   "rp.title": ["التقارير", "Reports"],
+  "rp.details": ["التفاصيل", "Details"],
   "rp.today": ["النهارده", "Today"],
   "rp.yesterday": ["امبارح", "Yesterday"],
   "rp.week": ["آخر ٧ أيام", "Last 7 days"],

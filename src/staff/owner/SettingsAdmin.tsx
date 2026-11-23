@@ -9,6 +9,12 @@ import { Button, Card, Field, Input, Pill, SectionTitle, Select, Sheet, Toggle, 
 import { refresh } from "../store";
 import { customerOrigin } from "@/lib/site";
 import { useOnline, useSnap } from "../hooks";
+import { NavSection, SectionNav } from "../SectionNav";
+
+const SECTIONS = [
+  ["set-general", "st.general"], ["set-qr", "qr.title"], ["set-modes", "st.modes"], ["set-prices", "st.roomPrices"],
+  ["set-bundles", "bu.title"], ["set-happy", "hh.title"], ["set-places", "st.places"],
+] as const;
 
 export function SettingsAdmin() {
   const { t } = useI18n();
@@ -16,13 +22,14 @@ export function SettingsAdmin() {
   return (
     <div className="grid gap-6">
       {!online ? <p className="text-busy font-semibold">{t("m.onlineOnly")}</p> : null}
-      <GeneralSettingsKeyed />
-      <PrintQrs />
-      <ModesSettings />
-      <RoomPrices />
-      <BundlePlans />
-      <HappyHours />
-      <PlacesSettings />
+      <SectionNav label={t("s.nav.settings")} items={SECTIONS.map(([id, k]) => ({ id, label: t(k) }))} />
+      <NavSection id="set-general"><GeneralSettingsKeyed /></NavSection>
+      <NavSection id="set-qr"><PrintQrs /></NavSection>
+      <NavSection id="set-modes"><ModesSettings /></NavSection>
+      <NavSection id="set-prices"><RoomPrices /></NavSection>
+      <NavSection id="set-bundles"><BundlePlans /></NavSection>
+      <NavSection id="set-happy"><HappyHours /></NavSection>
+      <NavSection id="set-places"><PlacesSettings /></NavSection>
     </div>
   );
 }
