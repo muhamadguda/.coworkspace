@@ -5,6 +5,7 @@ import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, supabase } from "@/lib/supabase";
 import type { Category, MenuItem, OptionGroup } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Sheet, Textarea, Toggle, cx, useToast } from "@/components/ui";
+import { SectionNav } from "../SectionNav";
 import { dispatch, refresh, uuid } from "../store";
 import { useOnline, useSnap } from "../hooks";
 import { StockSheet } from "../components/StockSheet";
@@ -25,11 +26,12 @@ export function MenuAdmin() {
       <SectionTitle action={<div className="flex gap-2"><Button size="sm" onClick={() => setEditCat({ name_ar: "", name_en: "", sort: cats.length + 1, active: true })}>{t("m.newCategory")}</Button><Button size="sm" variant="accent" disabled={!cats.length} onClick={() => setEditItem({ category_id: cats[0]?.id, name_ar: "", name_en: "", desc_ar: "", desc_en: "", price: 0, options: [], available: true, active: true, sort: 0, image_url: null })}>{t("m.newItem")}</Button></div>}>
         {t("s.nav.menu")}
       </SectionTitle>
+      <SectionNav label={t("s.nav.menu")} items={cats.map((c) => ({ id: `m-cat-${c.id}`, label: n(c) }))} />
       {cats.length === 0 ? <Empty>{t("common.none")}</Empty> : null}
       {cats.map((c) => {
         const items = snap.items.filter((i) => i.category_id === c.id).sort((a, b) => a.sort - b.sort);
         return (
-          <section key={c.id} className="grid gap-2">
+          <section key={c.id} id={`m-cat-${c.id}`} className="grid gap-2">
             <div className="flex items-center justify-between gap-2">
               <h3 className={cx("font-display text-xl font-bold", !c.active && "opacity-50")}>{n(c)} {!c.active ? <Pill>{t("tm.disabled")}</Pill> : null}</h3>
               <Button size="sm" variant="ghost" onClick={() => setEditCat(c)}>{t("common.edit")}</Button>
