@@ -5,13 +5,16 @@ import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { round2 } from "@/lib/billing";
-import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Toggle, cx, useToast } from "@/components/ui";
+import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Select, Toggle, cx, useToast } from "@/components/ui";
 import { useOnline, useSnap } from "../hooks";
 
 type Member = { customer_id: string; phone: string; name: string };
-type CustomMenu = { id: string; name_ar: string; name_en: string; active: boolean; station_id: string | null; item_ids: string[]; members: Member[] };
+type CustomMenu = { id: string; name_ar: string; name_en: string; active: boolean; station_id: string | null; item_ids: string[]; members: Member[]; targets?: Target[] };
+type Target = { id: string; kind: TargetKind; ref_id: string | null };
+type TargetKind = "place" | "all_tables" | "all_rooms" | "all_areas" | "all_stations" | "station" | "event";
+type EventLite = { id: string; title_ar: string; title_en: string; starts_at: string };
 type Station = { id: string; name: string; active: boolean; menu_id: string | null; account_customer_id: string; debt_limit: number; outstanding: number; open_bill: number | null; members: Member[] };
-type Data = { menus: CustomMenu[]; stations: Station[] };
+type Data = { menus: CustomMenu[]; stations: Station[]; events?: EventLite[] };
 
 /** Owner: stations (private accounts members order on) and custom menus (items only some customers see). */
 export function StationsAdmin() {
@@ -75,7 +78,7 @@ export function StationsAdmin() {
       </SectionTitle>
       <p className="text-sm text-muted">{t("stn.menusHint")}</p>
       {data.menus.filter((m) => !m.station_id).map((m) => (
-        <MenuCard key={m.id} m={m} busy={busy || !online} run={run} db={db} withMembers />
+        <MenuCard key={m.id} m={m} busy={busy || !online} run={run} db={db} withMembers targetsCtx={{ stations: data.stations, events: data.events ?? [] }} />
       ))}
     </div>
   );
@@ -117,7 +120,7 @@ function StationCard({ s, menu, busy, run, db }: { s: Station; menu: CustomMenu 
   );
 }
 
-function MenuCard({ m, busy, run, db, withMembers }: { m: CustomMenu; busy: boolean; run: Run; db: Db; withMembers?: boolean }) {
+function MenuCard({ m, busy, run, db, withMembers, targetsCtx }: { m: CustomMenu; busy: boolean; run: Run; db: Db; withMembers?: boolean; targetsCtx?: { stations: Station[]; events: EventLite[] } }) {
   const { t, n, money } = useI18n();
   const snap = useSnap();
   const [ar, setAr] = useState(m.name_ar);
@@ -159,6 +162,7 @@ function MenuCard({ m, busy, run, db, withMembers }: { m: CustomMenu; busy: bool
           })}
         </div>
       ) : null}
+      {targetsCtx ? <Targets m={m} busy={busy} run={run} db={db} ctx={targetsCtx} /> : null}
       {withMembers ? (
         <Members
           title={t("stn.menuMembers")}
@@ -199,6 +203,59 @@ function Members({ title, members, busy, onAdd, onRemove }: { title: string; mem
             await onAdd(normalizePhone(phone), name.trim());
             setPhone("");
             setName("");
+          }}
+        >
+          {t("common.add")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Where a menu applies: places (by QR), all stations or one, an event. All matching menus show together. */
+function Targets({ m, busy, run, db, ctx }: { m: CustomMenu; busy: boolean; run: Run; db: Db; ctx: { stations: Station[]; events: EventLite[] } }) {
+  const { t, n, lang } = useI18n();
+  const snap = useSnap();
+  const [pick, setPick] = useState("");
+  const places = snap.places.filter((p) => p.active);
+  const options: { value: string; label: string }[] = [
+    { value: "all_tables:", label: t("stn.tAllTables") },
+    { value: "all_rooms:", label: t("stn.tAllRooms") },
+    { value: "all_areas:", label: t("stn.tAllAreas") },
+    { value: "all_stations:", label: t("stn.tAllStations") },
+    ...places.map((p) => ({ value: `place:${p.id}`, label: n(p) })),
+    ...ctx.stations.map((s) => ({ value: `station:${s.id}`, label: s.name })),
+    ...ctx.events.map((e) => ({ value: `event:${e.id}`, label: `${lang === "ar" ? e.title_ar : e.title_en} · ${new Date(e.starts_at).toLocaleDateString()}` })),
+  ];
+  const label = (x: Target) => options.find((o) => o.value === `${x.kind}:${x.ref_id ?? ""}`)?.label ?? t("common.none");
+  const targets = m.targets ?? [];
+  const taken = new Set(targets.map((x) => `${x.kind}:${x.ref_id ?? ""}`));
+  return (
+    <div className="grid gap-2">
+      <span className="font-semibold">{t("stn.appliesTo")}</span>
+      <p className="text-xs text-muted">{t("stn.appliesHint")}</p>
+      {targets.length === 0 ? <span className="text-sm text-muted">{t("common.none")}</span> : null}
+      <ul className="grid gap-1">
+        {targets.map((x) => (
+          <li key={x.id} className="flex items-center justify-between gap-2 text-sm">
+            <span>{label(x)}</span>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => run(() => db(supabase().from("custom_menu_targets").delete().eq("id", x.id)))}>{t("common.delete")}</Button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-end gap-2">
+        <Select aria-label={t("stn.appliesTo")} value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">…</option>
+          {options.filter((o) => !taken.has(o.value)).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </Select>
+        <Button
+          size="sm"
+          variant="accent"
+          disabled={busy || !pick}
+          onClick={async () => {
+            const [kind, ref] = pick.split(":");
+            await run(() => db(supabase().from("custom_menu_targets").insert({ menu_id: m.id, kind, ref_id: ref || null })));
+            setPick("");
           }}
         >
           {t("common.add")}

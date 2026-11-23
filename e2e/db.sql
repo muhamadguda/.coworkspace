@@ -273,4 +273,76 @@ begin
   raise notice 'station tests: all passed';
 end $s$;
 
+-- Custom menus applied to places, stations and events.
+do $m$
+declare uid uuid; hid uuid; pub uuid; menu uuid; tbl uuid; ttok text; rm uuid; rtok text; st jsonb; mem jsonb; r jsonb; ok boolean; ev uuid := gen_random_uuid(); ev2 uuid := gen_random_uuid(); g jsonb;
+begin
+  select user_id into uid from staff_profiles where role = 'owner' and active limit 1;
+  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select id into hid from menu_items where active and options = '[]'::jsonb order by sort desc limit 1;
+  select id into pub from menu_items where active and options = '[]'::jsonb and id <> hid order by sort limit 1;
+  update menu_items set public = false, available = true where id = hid;
+  select id, qr_token into tbl, ttok from places where kind = 'table' and active order by sort limit 1;
+  select id, qr_token into rm, rtok from places where kind = 'room' and active order by sort limit 1;
+  insert into custom_menus (name_ar, name_en) values ('ترابيزات', 'Tables menu') returning id into menu;
+  insert into custom_menu_items (menu_id, menu_item_id) values (menu, hid);
+  insert into custom_menu_targets (menu_id, kind) values (menu, 'all_tables');
+
+  r := customer_menus2('', '', ttok);
+  assert exists (select 1 from jsonb_array_elements(r->'menus') x where x->>'id' = menu::text), 'table QR shows the tables menu';
+  r := customer_menus2('', '', rtok);
+  assert not exists (select 1 from jsonb_array_elements(r->'menus') x where x->>'id' = menu::text), 'room QR does not';
+  perform customer_place_order(gen_random_uuid(), ttok, '01066660001', null, '', jsonb_build_array(jsonb_build_object('menu_item_id', hid, 'qty', 1)), '');
+  begin
+    perform customer_place_order(gen_random_uuid(), rtok, '01066660001', null, '', jsonb_build_array(jsonb_build_object('menu_item_id', hid, 'qty', 1)), '');
+    ok := false;
+  exception when others then ok := sqlerrm = 'item_not_found'; end;
+  assert ok, 'tables-only item refused from a room';
+  insert into custom_menu_targets (menu_id, kind, ref_id) values (menu, 'place', rm);
+  perform customer_place_order(gen_random_uuid(), rtok, '01066660002', null, '', jsonb_build_array(jsonb_build_object('menu_item_id', hid, 'qty', 1)), '');
+  begin
+    insert into custom_menu_targets (menu_id, kind) values (menu, 'all_tables');
+    ok := false;
+  exception when unique_violation then ok := true; end;
+  assert ok, 'same target twice refused';
+  delete from custom_menu_targets where menu_id = menu;
+
+  -- All stations: every station member sees it, without a QR.
+  insert into custom_menu_targets (menu_id, kind) values (menu, 'all_stations');
+  st := owner_create_station('Targets test');
+  mem := owner_add_member('station', (st->>'id')::uuid, '01066660003', '');
+  r := customer_menus2('01066660003', mem->>'code', null);
+  assert (r->>'known')::boolean and exists (select 1 from jsonb_array_elements(r->'menus') x where x->>'id' = menu::text), 'station member sees the all-stations menu';
+  r := customer_menus2('01066660001', (select code from customers where phone = '01066660001'), null);
+  assert not exists (select 1 from jsonb_array_elements(r->'menus') x where x->>'id' = menu::text), 'non-member does not';
+  delete from custom_menu_targets where menu_id = menu;
+
+  -- Event: signed-up guests, from 2 hours before the start.
+  insert into events (id, title_ar, title_en, starts_at, place_id) values (ev, 'ليلة', 'Night', now() + interval '1 hour', null);
+  insert into events (id, title_ar, title_en, starts_at) values (ev2, 'بكرة', 'Tomorrow', now() + interval '2 days');
+  g := customer_event_signup(ev, '01066660004', 'Guest', 1, '', false);
+  perform customer_event_signup(ev2, '01066660004', 'Guest', 1, '', false);
+  insert into custom_menu_targets (menu_id, kind, ref_id) values (menu, 'event', ev);
+  r := customer_menus2('01066660004', (select code from customers where phone = '01066660004'), null);
+  assert exists (select 1 from jsonb_array_elements(r->'menus') x where x->>'id' = menu::text), 'event guest sees the event menu';
+  update custom_menu_targets set ref_id = ev2 where menu_id = menu;
+  r := customer_menus2('01066660004', (select code from customers where phone = '01066660004'), null);
+  assert not exists (select 1 from jsonb_array_elements(r->'menus') x where x->>'id' = menu::text), 'not before the event window';
+  assert jsonb_array_length(owner_stations_menus()->'events') >= 2, 'owner sees events to target';
+  assert exists (select 1 from jsonb_array_elements(owner_stations_menus()->'menus') x where x->>'id' = menu::text and jsonb_array_length(x->'targets') = 1), 'owner sees targets';
+
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  begin
+    insert into custom_menu_targets (menu_id, kind) values (menu, 'all_rooms');
+    ok := false;
+  exception when others then ok := true; end;
+  assert ok, 'anon cannot add targets';
+  r := customer_menus2('', '', ttok);
+  assert r ? 'menus', 'anon can read menus for a QR';
+  perform set_config('role', 'postgres', true);
+  raise notice 'menu target tests: all passed';
+end $m$;
+
 rollback;
