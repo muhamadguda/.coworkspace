@@ -53,10 +53,30 @@ jobs:
           openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:PASSPHRASE -in "$file" -out "$file.enc"
           rm "$file"
           echo "FILE=$file.enc" >> "$GITHUB_ENV"
+      - name: Menu photos (dot only)
+        # Photos live in Supabase Storage, not in the dump. The bucket is public, so each file is
+        # fetched by its public URL; the list of names comes from the database.
+        if: steps.check.outputs.skip != 'true' && matrix.name == 'dot'
+        run: |
+          set -euo pipefail
+          base="https://avqsypqflrjcylmneycj.supabase.co/storage/v1/object/public/menu"
+          mkdir photos
+          /usr/lib/postgresql/17/bin/psql "$DB_URL" -At -c "select name from storage.objects where bucket_id = 'menu'" > names.txt
+          while IFS= read -r n; do
+            [ -n "$n" ] || continue
+            mkdir -p "photos/$(dirname "$n")"
+            curl -fsS --retry 3 -o "photos/$n" "$base/$(printf '%s' "$n" | jq -sRr @uri | sed 's/%2F/\//g')"
+          done < names.txt
+          echo "$(wc -l < names.txt) photos"
+          tar -czf photos.tgz photos
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:PASSPHRASE -in photos.tgz -out "${FILE%.dump.enc}-photos.tgz.enc"
+          rm -rf photos photos.tgz names.txt
       - uses: actions/upload-artifact@v4
         if: steps.check.outputs.skip != 'true'
         with:
           name: ${{ matrix.name }}-backup
-          path: ${{ env.FILE }}
+          path: |
+            ${{ env.FILE }}
+            *-photos.tgz.enc
           retention-days: 30
           if-no-files-found: error

@@ -25,7 +25,8 @@ To test it: open the **Actions** tab → **Nightly database backup** → **Run w
 
 - `public`: all app data (bills, sessions, orders, customers, menu, settings, and so on).
 - `auth`: staff logins.
-- `storage`: file metadata only. Uploaded files themselves (menu photos) are not in the dump.
+- `storage`: file metadata.
+- Menu photos (dot only): the files themselves, in a separate `dot-…-photos.tgz.enc` in the same artifact. Decrypt it like the dump, then `tar -xzf` and upload the files back to the `menu` bucket with the same names.
 
 ## Restore
 

@@ -1,10 +1,24 @@
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 
+// Only our own pages may report: browsers always send Origin on a POST fetch, so a stranger's
+// script or curl without a matching Origin is dropped before it can push to owner phones.
+function sameSite(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    const o = new URL(origin).host;
+    return o === new URL(request.url).host || o === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
 // Browsers report crashes and failed counter syncs here; new ones are pushed to owner devices.
 export async function POST(request: Request) {
   const secret = process.env.PUSH_SECRET;
-  if (!secret) return new Response(null, { status: 204 });
+  if (!secret || !sameSite(request)) return new Response(null, { status: 204 });
+  if (Number(request.headers.get("content-length") ?? 0) > 16_000) return new Response(null, { status: 413 });
   const body = (await request.json().catch(() => null)) as { source?: string; message?: string; detail?: string; url?: string; user?: string } | null;
   if (!body?.message) return new Response(null, { status: 204 });
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false } });
