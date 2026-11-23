@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Button, Card, Segmented } from "@/components/ui";
 import { useIsOwner } from "./hooks";
+import { SectionNav } from "./SectionNav";
 
 // How to use dots, for the counter and the owner. Button names match the app's labels.
 type L = { ar: string; en: string };
@@ -189,15 +190,9 @@ export function Guide() {
           <Button size="sm" onClick={() => window.print()}>{lang === "ar" ? "اطبع" : "Print"}</Button>
         </div>
       </div>
-      <nav className="flex flex-wrap gap-1.5 print:hidden">
-        {sections.map((s) => (
-          <button key={s.id} type="button" onClick={() => document.getElementById(`g-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="h-9 px-3 inline-flex items-center rounded-full border-2 border-line text-sm font-semibold">
-            {L(s.title)}
-          </button>
-        ))}
-      </nav>
+      <SectionNav label={lang === "ar" ? "الدليل" : "Guide"} items={sections.map((s) => ({ id: `g-${s.id}`, label: L(s.title) }))} />
       {sections.map((s, i) => (
-        <Card key={s.id} id={`g-${s.id}`} className="p-4 grid gap-3 break-inside-avoid scroll-mt-28">
+        <Card key={s.id} id={`g-${s.id}`} className="p-4 grid gap-3 break-inside-avoid">
           <h3 className="font-display text-xl font-bold"><span className="num text-accent me-2">{i + 1}</span>{L(s.title)}</h3>
           <ol className="grid gap-2 list-decimal ps-6 marker:font-bold marker:text-muted">
             {s.steps.map((x, k) => <li key={k} className="leading-relaxed">{L(x)}</li>)}
