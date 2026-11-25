@@ -215,6 +215,16 @@ export function Logo({ className, light, ink: fixed }: { className?: string; lig
   );
 }
 
+// Staff side: same wordmark plus a gold "staff" tag, so the counter app never looks like the customer site.
+export function StaffLogo({ className }: { className?: string }) {
+  return (
+    <span dir="ltr" className={cx("inline-flex items-center gap-2 h-7", className)}>
+      <Logo className="!h-full" />
+      <span className="self-center rounded-[4px] bg-accent text-accent-ink font-mono font-semibold uppercase tracking-wider text-[11px] leading-none px-1.5 py-1">staff</span>
+    </span>
+  );
+}
+
 export function LangSwitch({ className }: { className?: string }) {
   const { t, toggleLang } = useI18n();
   return (

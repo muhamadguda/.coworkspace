@@ -5,7 +5,7 @@ import type { Session as AuthSession } from "@supabase/supabase-js";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc, staffEmail, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { Button, Card, Field, Input, LangSwitch, Logo, Spinner } from "@/components/ui";
+import { Button, Card, Field, Input, LangSwitch, StaffLogo, Spinner } from "@/components/ui";
 import { cachedUserId, clearLocal, resumeAfterSignIn, startStore, stopStore, useStaff } from "./store";
 import { Shell } from "./Shell";
 
@@ -74,7 +74,7 @@ function Splash() {
   return (
     <div className="min-h-dvh grid place-items-center">
       <div className="grid gap-4 place-items-center">
-        <Logo className="h-12" />
+        <StaffLogo className="h-12" />
         <span className="inline-flex items-center gap-2 text-muted">
           <Spinner /> {t("common.loading")}
         </span>
@@ -128,7 +128,7 @@ function Login({ onDone }: { onDone?: () => void }) {
     <div className={onDone ? "w-full grid place-items-center" : "min-h-dvh grid place-items-center p-4"}>
       <Card className="w-full max-w-sm p-6 grid gap-5 tile-stripe">
         <div className="flex items-center justify-between">
-          <Logo className="h-9" />
+          <StaffLogo className="h-9" />
           <LangSwitch />
         </div>
         <h1 className="font-display text-2xl font-bold">{t("s.login.title")}</h1>
