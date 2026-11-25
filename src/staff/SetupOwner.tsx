@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { Button, Card, Field, Input, LangSwitch, Logo } from "@/components/ui";
+import { Button, Card, Field, Input, LangSwitch, StaffLogo } from "@/components/ui";
 
 export function SetupOwner() {
   const { t } = useI18n();
@@ -35,7 +35,7 @@ export function SetupOwner() {
     <div className="min-h-dvh grid place-items-center p-4">
       <Card className="w-full max-w-sm p-6 grid gap-5 tile-stripe">
         <div className="flex items-center justify-between">
-          <Logo className="h-9" />
+          <StaffLogo className="h-9" />
           <LangSwitch />
         </div>
         <div className="grid gap-1">

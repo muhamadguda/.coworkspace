@@ -6,7 +6,7 @@ import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, rpc, supabase } from "@/lib/supabase";
 import { currentSubscription, getPushSubscription, pushSupport } from "@/lib/push";
 import { round2 } from "@/lib/billing";
-import { Button, Card, Field, Input, LangSwitch, Logo, Pill, Sheet, cx, useToast } from "@/components/ui";
+import { Button, Card, Field, Input, LangSwitch, StaffLogo, Pill, Sheet, cx, useToast } from "@/components/ui";
 import { AlertBar, useAlerts } from "./alerts";
 import { audioReady, keepAwake, unlockAudio } from "./alarm";
 import { carriedFloat, currentBusinessDay } from "./derive";
@@ -101,7 +101,7 @@ export function Shell() {
       <header ref={trackHeaderHeight} className="tile-stripe sticky top-0 z-30 bg-bg border-b-2 border-line print:hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="flex items-center justify-between gap-3 py-2" style={{ paddingInline: "max(16px, env(safe-area-inset-left, 0px))" }}>
           <div className="flex items-center gap-3 min-w-0">
-            <Logo className="h-7" />
+            <StaffLogo className="h-7" />
             <span className="text-sm text-muted hidden md:inline num">{day}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ function ShiftGate({ dayOpen, onStarted }: { dayOpen: boolean; onStarted: () => 
     <div className="min-h-dvh grid place-items-center p-4">
       <Card className="w-full max-w-md p-6 grid gap-5 tile-stripe">
         <div className="flex items-center justify-between">
-          <Logo className="h-9" />
+          <StaffLogo className="h-9" />
           <div className="flex items-center gap-2">
             <SyncPill />
             <LangSwitch />

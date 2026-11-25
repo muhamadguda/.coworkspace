@@ -12,6 +12,8 @@ const CUSTOMER_PATHS = ["/menu", "/events"];
 const under = (path: string, roots: string[]) => roots.some((r) => path === r || path.startsWith(r + "/"));
 const bare = (host: string) => host.toLowerCase().replace(/:\d+$/, "").replace(/^www\./, "");
 
+export const isStaffHost = (host: string) => bare(host) === STAFF_HOST;
+
 /** Where a request should go instead, or null to serve it here. */
 export function hostRedirect(host: string, path: string): string | null {
   const h = bare(host);
