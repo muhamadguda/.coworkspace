@@ -1,7 +1,7 @@
 // Optimistic local application of counter operations. Mirrors staff_op() on the server
 // closely enough for the UI to keep working offline. Every case is idempotent: applying
 // an op whose effect is already in the snapshot changes nothing.
-import { billTotals, businessDay, round2 } from "@/lib/billing";
+import { billTotals, businessDay, round2, UNLIMITED_MINUTES } from "@/lib/billing";
 import { rateFor } from "@/lib/pricing";
 import type { Bill, ChosenOption, Order, OrderItem, Snapshot } from "@/lib/types";
 
@@ -34,7 +34,9 @@ export type OpType =
   | "sell_bundle"
   | "stock_adjust"
   | "handle_call"
-  | "set_offers";
+  | "set_offers"
+  | "shift_start"
+  | "shift_end";
 
 export type Op = {
   id: string;
@@ -290,7 +292,8 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
         orders: [...s.orders, order],
         order_items: [...s.order_items, { id: p.item_id, order_id: p.order_id, menu_item_id: null, name_ar: plan.name_ar, name_en: plan.name_en, unit_price: plan.price, qty: 1, options: [], note: "" }],
         customer_bundles: [...(s.customer_bundles ?? []), {
-          id: p.id, customer_id: cid, plan_id: plan.id, name_ar: plan.name_ar, name_en: plan.name_en, mode_id: plan.mode_id, minutes_total: plan.hours * 60, minutes_used: 0,
+          id: p.id, customer_id: cid, plan_id: plan.id, name_ar: plan.name_ar, name_en: plan.name_en, mode_id: plan.mode_id, minutes_total: plan.unlimited ? UNLIMITED_MINUTES : plan.hours * 60, minutes_used: 0,
+          unlimited: !!plan.unlimited, place_kind: plan.place_kind ?? null,
           price: plan.price, order_item_id: p.item_id, expires_at: new Date(Date.parse(at) + plan.valid_days * 86_400_000).toISOString(), voided_at: null, created_at: at,
         }],
       };
@@ -317,6 +320,16 @@ export function applyOp(s: Snapshot, op: Op): Snapshot {
       };
     case "set_offers":
       return { ...s, customers: patch(s.customers, resolveCustomer(s, p.customer_id), () => ({ offers_opt_in: !!p.on })) };
+    case "shift_start": {
+      if ((s.shifts ?? []).some((x) => x.id === p.id)) return s;
+      const me = op.by ?? s.me.user_id;
+      const closed = (s.shifts ?? []).map((x) => (x.user_id === me && !x.ended_at ? { ...x, ended_at: at } : x));
+      return { ...s, shifts: [...closed, { id: p.id, user_id: me, started_at: at, ended_at: null }] };
+    }
+    case "shift_end": {
+      const me = op.by ?? s.me.user_id;
+      return { ...s, shifts: (s.shifts ?? []).map((x) => (!x.ended_at && (p.shift_id ? x.id === p.shift_id : x.user_id === me) ? { ...x, ended_at: at } : x)) };
+    }
     default:
       return s;
   }

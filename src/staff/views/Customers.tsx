@@ -7,7 +7,7 @@ import { downloadCsv, intlPhone } from "@/lib/csv";
 import { round2 } from "@/lib/billing";
 import type { Customer, PayMethod } from "@/lib/types";
 import { Button, Card, Empty, Field, Input, Pill, SectionTitle, Segmented, Sheet, Toggle, useToast } from "@/components/ui";
-import { activeBundlesOf, fmtHours, openBillOfCustomer, placeById, searchCustomers } from "../derive";
+import { activeBundlesOf, bundleLeftText, openBillOfCustomer, placeById, searchCustomers } from "../derive";
 import { openWhatsApp, waNumber } from "@/lib/phone";
 import { fmtDay } from "../receipts";
 import { dispatch, refresh, uuid } from "../store";
@@ -180,7 +180,7 @@ function CustomerSheet({ c, onClose }: { c: Customer; onClose: () => void }) {
         {bundles.map((b) => (
           <div key={b.id} className="flex flex-wrap justify-between gap-2 text-sm">
             <span>{n(b)} · <span className="text-muted">{t("bu.expires", { d: fmtDay(b.expires_at, lang) })}</span></span>
-            <span className="num font-bold">{t("bu.left", { h: fmtHours(b.minutes_total - b.minutes_used) })}</span>
+            <span className="num font-bold">{bundleLeftText(b, t)}</span>
           </div>
         ))}
         {plans.length ? (

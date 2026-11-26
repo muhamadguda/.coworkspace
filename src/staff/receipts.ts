@@ -32,7 +32,7 @@ export function whatsappBill(snap: Snapshot, bill: Bill, lang: Lang, t: T) {
   for (const x of d.totals) out.push(x.strong ? `*${x.label}: ${formatMoney(x.value)}*` : `${x.label}: ${formatMoney(x.value)}`);
   for (const x of d.payments ?? []) out.push(`${x.label}: ${formatMoney(x.value)}`);
   const b = activeBundlesOf(snap, bill.customer_id)[0];
-  if (b) out.push("", t("wa.msgBundle", { h: fmtHours(b.minutes_total - b.minutes_used), d: fmtDay(b.expires_at, lang) }));
+  if (b) out.push("", b.unlimited ? t("wa.msgPass", { name: lang === "ar" ? b.name_ar : b.name_en, d: fmtDay(b.expires_at, lang) }) : t("wa.msgBundle", { h: fmtHours(b.minutes_total - b.minutes_used), d: fmtDay(b.expires_at, lang) }));
   out.push("", t("wa.thanks"));
   if (snap.settings.google_review_url) out.push(t("wa.reviewLine", { url: snap.settings.google_review_url }));
   if (d.venue.footer) out.push(d.venue.footer);

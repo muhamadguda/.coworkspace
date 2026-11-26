@@ -10,7 +10,8 @@ import { Button, Card, Field, Input, LangSwitch, Logo, Pill, Sheet, cx, useToast
 import { AlertBar, useAlerts } from "./alerts";
 import { audioReady, keepAwake, unlockAudio } from "./alarm";
 import { carriedFloat, currentBusinessDay } from "./derive";
-import { clearLocal, dismissFailed, dispatch, getState, stopStore, useStaff } from "./store";
+import { clearLocal, dismissFailed, dispatch, getState, stopStore, useStaff, uuid } from "./store";
+import type { Snapshot } from "@/lib/types";
 import { useIsOwner, useNow, useSnap } from "./hooks";
 import { Board, type StartPreset } from "./views/Board";
 import { OrdersView } from "./views/Orders";
@@ -24,10 +25,11 @@ import { StationsAdmin } from "./owner/StationsAdmin";
 import { SettingsAdmin } from "./owner/SettingsAdmin";
 import { TeamAdmin } from "./owner/TeamAdmin";
 import { Reports } from "./owner/Reports";
+import { ExpensesAdmin } from "./owner/ExpensesAdmin";
 import { Guide } from "./Guide";
 
-type Tab = "board" | "orders" | "bills" | "bookings" | "customers" | "day" | "menu" | "stations" | "events" | "settings" | "team" | "reports" | "guide";
-const OWNER_TABS: Tab[] = ["menu", "stations", "events", "settings", "team", "reports"];
+type Tab = "board" | "orders" | "bills" | "bookings" | "customers" | "day" | "menu" | "stations" | "events" | "settings" | "team" | "expenses" | "reports" | "guide";
+const OWNER_TABS: Tab[] = ["menu", "stations", "events", "settings", "team", "expenses", "reports"];
 
 export function Shell() {
   const { t } = useI18n();
@@ -89,6 +91,7 @@ export function Shell() {
           { id: "events", label: t("s.nav.events") },
           { id: "settings", label: t("s.nav.settings") },
           { id: "team", label: t("s.nav.team") },
+          { id: "expenses", label: t("ex.nav") },
           { id: "reports", label: t("s.nav.reports") },
         ] as { id: Tab; label: string }[])
       : []),
@@ -145,6 +148,7 @@ export function Shell() {
         {active === "events" && <EventsAdmin />}
         {active === "settings" && <SettingsAdmin />}
         {active === "team" && <TeamAdmin />}
+        {active === "expenses" && <ExpensesAdmin />}
         {active === "reports" && <Reports />}
         {active === "guide" && <Guide />}
       </main>
@@ -161,6 +165,8 @@ function ShiftGate({ dayOpen, onStarted }: { dayOpen: boolean; onStarted: () => 
     unlockAudio();
     void keepAwake();
     if (!dayOpen) dispatch("open_day", { opening_float: round2(Number(float) || 0) });
+    // Clock in, unless this person is already on shift (a page reload shows this screen again).
+    if (!myOpenShift(snap)) dispatch("shift_start", { id: uuid() });
     onStarted();
   }
 
@@ -286,8 +292,13 @@ function StaffAlerts() {
   );
 }
 
+/** The signed-in person's open shift, if any. */
+function myOpenShift(snap: Snapshot) {
+  return (snap.shifts ?? []).find((x) => x.user_id === snap.me.user_id && !x.ended_at);
+}
+
 function UserMenu() {
-  const { t } = useI18n();
+  const { t, dur, time: timeOf } = useI18n();
   const errText = useErrorText();
   const toast = useToast();
   const snap = useSnap();
@@ -311,7 +322,20 @@ function UserMenu() {
     }
   }
 
+  const shift = myOpenShift(snap);
+  const now = useNow(60000);
+
+  function endShift() {
+    if (shift) dispatch("shift_end", { shift_id: shift.id });
+    toast(t("sh.ended"));
+  }
+
   async function logout() {
+    // Signing out ends the shift. Wait a moment for it to reach the server.
+    if (shift) {
+      dispatch("shift_end", { shift_id: shift.id });
+      for (let i = 0; i < 20 && getState().queue.some((q) => q.state === "pending"); i++) await new Promise((r) => setTimeout(r, 150));
+    }
     await stopStore();
     if (!getState().queue.some((q) => q.state === "pending")) await clearLocal();
     await supabase().auth.signOut();
@@ -325,6 +349,19 @@ function UserMenu() {
       </Button>
       <Sheet open={open} onClose={() => setOpen(false)} title={snap.me.name} footer={<Button variant="danger" onClick={logout}>{t("s.logout")}</Button>}>
         <p className="text-sm text-muted num">{snap.me.phone} · {snap.me.role}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-line rounded-[2px] p-3">
+          {shift ? (
+            <>
+              <span className="font-semibold">{t("sh.since", { time: timeOf(shift.started_at) })} · <span className="num">{dur(Math.max(0, Math.round((now.getTime() - Date.parse(shift.started_at)) / 60000)))}</span></span>
+              <Button size="sm" onClick={endShift}>{t("sh.end")}</Button>
+            </>
+          ) : (
+            <>
+              <span className="text-muted">{t("sh.off")}</span>
+              <Button size="sm" variant="accent" onClick={() => { dispatch("shift_start", { id: uuid() }); toast(t("sh.started")); }}>{t("s.startShift")}</Button>
+            </>
+          )}
+        </div>
         <StaffAlerts />
         <div className="grid gap-3">
           <h4 className="font-semibold">{t("s.changePassword")}</h4>
@@ -357,6 +394,7 @@ function TabIcon({ id }: { id: Tab }) {
     events: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z",
     settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1L15 3.5h-4L10.6 6a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
     team: "M4 5h16v14H4zM9 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5.5 17a3.5 3.5 0 0 1 7 0M14 9h4M14 13h3",
+    expenses: "M3 6h18v12H3zM3 10h18M7 15h4",
     reports: "M4 20V10M10 20V4M16 20v-7M22 20H2",
     guide: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01",
   };

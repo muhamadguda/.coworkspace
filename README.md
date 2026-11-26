@@ -23,7 +23,7 @@ src/customer/          customer page: menu, my bill, booking
 src/staff/store.ts     counter state: server snapshot + offline op queue + sync
 src/staff/reducer.ts   applies queued ops locally so the UI works offline
 src/staff/views/       board, orders, bills, bookings, customers, cash drawer
-src/staff/owner/       menu, settings + QR codes, team, reports
+src/staff/owner/       menu, stations, events, settings + QR codes, team, expenses, reports
 public/sw.js           service worker (counter loads offline)
 brand/                 logo masters and icons
 ```

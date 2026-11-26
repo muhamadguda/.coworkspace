@@ -8,7 +8,7 @@ import { billRunningTotal, currentBusinessDay, dayStats, isLowStock, openBills }
 
 /** Live summary of the business day for the owner, from the counter's own data (works offline). */
 export function TodayCard() {
-  const { t, n, money, dur } = useI18n();
+  const { t, n, money, dur, time } = useI18n();
   const snap = useSnap();
   const now = useNow(30_000);
   const day = currentBusinessDay(snap, now);
@@ -47,6 +47,7 @@ export function TodayCard() {
   const rewards = bundlesToday.filter((b) => b.source === "loyalty").length;
   const pending = snap.orders.filter((o) => o.status === "new").length + snap.bookings.filter((b) => b.status === "pending").length;
   const low = snap.items.filter((i) => i.active && isLowStock(i));
+  const onShift = (snap.shifts ?? []).filter((x) => !x.ended_at).map((x) => ({ x, who: snap.staff.find((p) => p.user_id === x.user_id) }));
 
   return (
     <Card className="p-4 grid gap-4 border-strong">
@@ -60,6 +61,14 @@ export function TodayCard() {
         <Stat label={t("td.topItem")} value={top ? n(top.name) : t("td.nothing")} sub={top ? `×${top.q}` : undefined} />
         <Stat label={t("td.bundlesSold")} value={String(sold.length)} sub={sold.length ? money(sold.reduce((a, b) => a + b.price, 0)) : undefined} />
         <Stat label={t("td.rewards")} value={String(rewards)} sub={pending ? `${t("td.pending")}: ${pending}` : undefined} />
+      </div>
+      <div className="grid gap-2">
+        <span className="font-semibold">{t("rp.onShift")}</span>
+        {onShift.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {onShift.map(({ x, who }) => <Pill key={x.id} tone="free">{who?.name ?? "—"} · <span className="num">{time(x.started_at)}</span></Pill>)}
+          </div>
+        ) : <span className="text-sm text-muted">{t("sh.nobody")}</span>}
       </div>
       <div className="grid gap-2">
         <span className="font-semibold">{t("td.lowStock")}</span>
