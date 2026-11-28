@@ -82,16 +82,22 @@ export function searchCustomers(s: Snapshot, q: string, limit = 20): Customer[] 
 
 export const placeName = (p: Place | undefined, lang: "ar" | "en") => (p ? (lang === "ar" ? p.name_ar : p.name_en) : "");
 
-/** Usable hour bundles of a customer, soonest to expire first. */
-export function activeBundlesOf(s: Snapshot, customerId: string, now = new Date()): CustomerBundle[] {
+/** Usable hour bundles and membership passes of a customer: passes first, then soonest to expire.
+ *  With a place kind, only those that cover it (a pass can be for rooms or shared areas only). */
+export function activeBundlesOf(s: Snapshot, customerId: string, now = new Date(), placeKind?: Place["kind"]): CustomerBundle[] {
   const cid = s.aliases?.[customerId] ?? customerId;
   return (s.customer_bundles ?? [])
     .filter((b) => b.customer_id === cid && !b.voided_at && Date.parse(b.expires_at) > now.getTime() && b.minutes_total - b.minutes_used > 0.5)
-    .sort((a, b) => a.expires_at.localeCompare(b.expires_at));
+    .filter((b) => !placeKind || !b.place_kind || b.place_kind === placeKind)
+    .sort((a, b) => Number(!!b.unlimited) - Number(!!a.unlimited) || a.expires_at.localeCompare(b.expires_at));
 }
 
 export const bundleOfItem = (s: Snapshot, itemId: string) => (s.customer_bundles ?? []).find((b) => b.order_item_id === itemId);
 export const bundleUseOfSession = (s: Snapshot, sessionId: string) => (s.bundle_uses ?? []).filter((u) => u.session_id === sessionId);
+
+/** What's left on a bundle: hours, or "unlimited" for a membership pass. */
+export const bundleLeftText = (b: CustomerBundle, t: (k: "bu.left" | "ms.unlimited", v?: Record<string, string | number>) => string) =>
+  b.unlimited || b.minutes_total >= 1_000_000 ? t("ms.unlimited") : t("bu.left", { h: fmtHours(b.minutes_total - b.minutes_used) });
 
 /** "7.5" style hours, no trailing zeros. */
 export const fmtHours = (minutes: number) => String(Math.round((minutes / 60) * 10) / 10);

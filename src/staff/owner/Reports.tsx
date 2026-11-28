@@ -8,6 +8,8 @@ import { Button, Card, Empty, Field, Input, SectionTitle, Segmented, Spinner, cx
 import { useSnap } from "../hooks";
 import { NavSection, SectionNav } from "../SectionNav";
 import { TodayCard } from "./TodayCard";
+import { EXPENSE_CATEGORIES, catKey } from "./ExpensesAdmin";
+import type { Expense } from "@/lib/types";
 
 type Report = {
   from: string; to: string;
@@ -25,6 +27,18 @@ type Report = {
   cancellations: { order_id: string; reason: string; by: string; at: string; amount: number }[];
   voided_items?: { name_ar: string; name_en: string; qty: number; amount: number; reason: string; by: string; at: string }[];
 };
+
+type ShiftRow = { id: string; user_id: string; name: string | null; phone: string | null; started_at: string; ended_at: string | null; auto_closed: boolean; minutes: number };
+type Extra = { expenses: Expense[]; shifts: ShiftRow[] };
+
+/** Expenses and staff shifts in the range (owner only; RLS and the function check it). */
+async function loadExtra(f: string, tt: string): Promise<Extra> {
+  const [ex, sh] = await Promise.all([
+    supabase().from("expenses").select("*").gte("business_day", f).lte("business_day", tt),
+    rpc<ShiftRow[]>("owner_shifts", { p_from: f, p_to: tt }).catch(() => [] as ShiftRow[]),
+  ]);
+  return { expenses: ((ex.data as Expense[]) ?? []).map((r) => ({ ...r, amount: Number(r.amount) })), shifts: sh ?? [] };
+}
 
 type AppError = { id: number; at: string; source: string; message: string; url: string | null };
 
@@ -68,6 +82,7 @@ export function Reports() {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [data, setData] = useState<Report | null>(null);
+  const [extra, setExtra] = useState<Extra | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +90,9 @@ export function Reports() {
     setBusy(true);
     setError(null);
     try {
-      setData(await rpc<Report>("owner_report", { p_from: f, p_to: tt }));
+      const [r, x] = await Promise.all([rpc<Report>("owner_report", { p_from: f, p_to: tt }), loadExtra(f, tt)]);
+      setData(r);
+      setExtra(x);
     } catch (e) {
       setError(errText(errorCode(e)));
     } finally {
@@ -97,6 +114,7 @@ export function Reports() {
 
   useEffect(() => {
     rpc<Report>("owner_report", { p_from: today, p_to: today }).then(setData).catch((e) => setError(errText(errorCode(e))));
+    void loadExtra(today, today).then(setExtra);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -124,10 +142,27 @@ export function Reports() {
       { title: t("rp.cashDays"), head: ["day", "opening", "expected", "counted"], rows: data.cash_days.map((r) => [r.business_day, r.opening_float, r.expected_cash, r.closing_counted]) },
       { title: t("rp.cashOuts"), head: ["day", "reason", "by", "amount"], rows: data.cash_outs.map((r) => [r.day, r.reason, r.by, r.amount]) },
       { title: t("rp.cancellations"), head: ["at", "reason", "by", "amount"], rows: data.cancellations.map((r) => [r.at, r.reason, r.by, r.amount]) },
+      { title: t("rp.profit"), head: ["metric", "EGP"], rows: [
+        [t("rp.revenue"), data.bills.total], [t("rp.expenses"), expTotal], [t("rp.cashOuts"), cashOutTotal], [t("rp.profit"), profit],
+        ...EXPENSE_CATEGORIES.map((c) => [t(catKey(c)), round2((extra?.expenses ?? []).filter((e) => e.category === c).reduce((a, e) => a + e.amount, 0))]),
+      ] },
+      { title: t("rp.expenses"), head: ["day", "category", "method", "note", "amount"], rows: (extra?.expenses ?? []).map((e) => [e.business_day, t(catKey(e.category)), e.method, e.note, e.amount]) },
+      { title: t("rp.hours"), head: ["name", "phone", "start", "end", "minutes"], rows: (extra?.shifts ?? []).map((s) => [s.name, s.phone, s.started_at, s.ended_at ?? "", s.minutes]) },
       { title: t("rp.voided"), head: ["at", "item", "qty", "reason", "by", "amount"], rows: (data.voided_items ?? []).map((r) => [r.at, nmx(r), r.qty, r.reason, r.by, r.amount]) },
     ]);
   }
 
+  const expTotal = round2((extra?.expenses ?? []).reduce((a, e) => a + e.amount, 0));
+  const cashOutTotal = round2((data?.cash_outs ?? []).reduce((a, c) => a + Number(c.amount), 0));
+  const profit = round2((data?.bills.total ?? 0) - expTotal - cashOutTotal);
+  const hoursByStaff = Object.values((extra?.shifts ?? []).reduce<Record<string, { name: string; minutes: number; n: number; open: boolean }>>((acc, s) => {
+    const k = s.user_id;
+    acc[k] ??= { name: s.name || s.phone || "—", minutes: 0, n: 0, open: false };
+    acc[k].minutes += Number(s.minutes) || 0;
+    acc[k].n += 1;
+    acc[k].open ||= !s.ended_at;
+    return acc;
+  }, {})).sort((a, b) => b.minutes - a.minutes);
   const m = data?.payments_by_method ?? {};
   const collected = round2((m.cash ?? 0) + (m.instapay ?? 0) + (m.vf_cash ?? 0));
   const maxDay = Math.max(1, ...(data?.by_day.map((d) => d.total) ?? [1]));
@@ -171,6 +206,21 @@ export function Reports() {
             <Kpi label={t("rp.discounts")} value={money(data.bills.discounts)} />
             <Kpi label={t("rp.payLater")} value={money(data.bills.pay_later)} sub={`${t("rp.debtCollected")} ${money(data.debt_collected)}`} />
           </div>
+
+          <Card className="p-4 grid gap-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-semibold">{t("rp.profit")}</h3>
+              <span className={cx("num text-2xl font-bold", profit < 0 ? "text-busy" : "text-free")}>{money(profit)}</span>
+            </div>
+            <table className="w-full text-sm"><tbody className="divide-y-2 divide-line">
+              <Tr cells={[t("rp.revenue"), money(data.bills.total)]} />
+              {EXPENSE_CATEGORIES.map((c) => ({ c, sum: round2((extra?.expenses ?? []).filter((e) => e.category === c).reduce((a, e) => a + e.amount, 0)) })).filter((x) => x.sum > 0)
+                .map((x) => <Tr key={x.c} cells={[t(catKey(x.c)), `−${money(x.sum)}`]} />)}
+              {cashOutTotal > 0 ? <Tr cells={[t("rp.cashOuts"), `−${money(cashOutTotal)}`]} /> : null}
+              <Tr strong cells={[t("rp.profit"), money(profit)]} />
+            </tbody></table>
+            <p className="text-xs text-muted">{t("rp.profitHint")}</p>
+          </Card>
 
           {data.by_day.length > 1 ? (
             <Card className="p-4 grid gap-2">
@@ -216,6 +266,10 @@ export function Reports() {
             </Table>
             <Table title={t("rp.cancellations")} empty={!data.cancellations.length} empty_text={t("rp.empty")}>
               {data.cancellations.map((r) => <Tr key={r.order_id} cells={[time(r.at), r.reason, r.by, money(r.amount)]} />)}
+            </Table>
+            <Table title={t("rp.hours")} empty={!hoursByStaff.length} empty_text={t("rp.empty")}>
+              {hoursByStaff.map((r) => <Tr key={r.name} cells={[r.name, r.open ? t("rp.onShift") : "", `${r.n} ${t("rp.shifts")}`, dur(r.minutes)]} />)}
+              {(extra?.shifts ?? []).filter((s) => s.auto_closed).map((s) => <Tr key={s.id} tone="busy" cells={[s.name || "—", `${new Date(s.started_at).toLocaleDateString("en-GB")} ${time(s.started_at)}`, t("rp.autoClosed"), dur(Number(s.minutes))]} />)}
             </Table>
             <Table title={t("rp.voided")} empty={!(data.voided_items ?? []).length} empty_text={t("rp.empty")}>
               {(data.voided_items ?? []).map((r, i) => <Tr key={i} cells={[time(r.at), `${nm(r)} × ${r.qty}`, r.reason, r.by, money(r.amount)]} />)}

@@ -13,7 +13,7 @@ import { NavSection, SectionNav } from "../SectionNav";
 
 const SECTIONS = [
   ["set-general", "st.general"], ["set-qr", "qr.title"], ["set-modes", "st.modes"], ["set-prices", "st.roomPrices"],
-  ["set-bundles", "bu.title"], ["set-happy", "hh.title"], ["set-places", "st.places"],
+  ["set-bundles", "bu.titleAll"], ["set-happy", "hh.title"], ["set-places", "st.places"],
 ] as const;
 
 export function SettingsAdmin() {
@@ -144,16 +144,20 @@ function BundlePlans() {
   const [edit, setEdit] = useState<Partial<BundlePlan> | null>(null);
   const plans = snap.bundle_plans ?? [];
   const modeName = (id: string | null | undefined) => (id ? n(snap.modes.find((m) => m.id === id)) : t("bu.anyMode"));
+  const kindName = (k: BundlePlan["place_kind"]) => (k === "area" ? t("ms.kindArea") : k === "room" ? t("ms.kindRoom") : t("ms.kindAny"));
   return (
     <Card className="p-4 grid gap-3">
-      <SectionTitle action={<Button size="sm" variant="accent" disabled={!online} onClick={() => setEdit({ name_ar: "", name_en: "", hours: 10, price: 0, valid_days: 30, mode_id: null, sort: plans.length + 1, active: true })}>{t("bu.new")}</Button>}>{t("bu.title")}</SectionTitle>
-      <p className="text-sm text-muted">{t("bu.hint")}</p>
+      <SectionTitle action={<span className="flex flex-wrap gap-1.5">
+        <Button size="sm" variant="accent" disabled={!online} onClick={() => setEdit({ name_ar: "", name_en: "", hours: 10, price: 0, valid_days: 30, mode_id: null, sort: plans.length + 1, active: true, unlimited: false, place_kind: null })}>{t("bu.new")}</Button>
+        <Button size="sm" variant="accent" disabled={!online} onClick={() => setEdit({ name_ar: "", name_en: "", hours: 1, price: 0, valid_days: 30, mode_id: null, sort: plans.length + 1, active: true, unlimited: true, place_kind: "area" })}>{t("ms.new")}</Button>
+      </span>}>{t("bu.titleAll")}</SectionTitle>
+      <p className="text-sm text-muted">{t("bu.hint")} {t("ms.hint")}</p>
       <div className="divide-y-2 divide-line">
         {plans.map((b) => (
           <div key={b.id} className={cx("flex flex-wrap items-center justify-between gap-2 py-2", b.active === false && "opacity-50")}>
             <span className="grid">
-              <span className="font-semibold">{n(b)}</span>
-              <span className="text-xs text-muted"><span className="num">{b.hours}</span> h · {modeName(b.mode_id)} · <span className="num">{b.valid_days}</span> {t("bu.validDays")}</span>
+              <span className="font-semibold">{n(b)} {b.unlimited ? <Pill tone="accent">{t("ms.pass")}</Pill> : null}</span>
+              <span className="text-xs text-muted">{b.unlimited ? t("ms.unlimited") : <><span className="num">{b.hours}</span> h</>} · {modeName(b.mode_id)} · {kindName(b.place_kind)} · <span className="num">{b.valid_days}</span> {t("bu.validDays")}</span>
             </span>
             <span className="flex items-center gap-2">
               <span className="num font-bold">{money(b.price)}</span>
@@ -163,9 +167,10 @@ function BundlePlans() {
         ))}
       </div>
       {edit ? (
-        <Sheet open onClose={() => setEdit(null)} title={edit.id ? n(edit as BundlePlan) : t("bu.new")} footer={<Button variant="primary" disabled={!edit.name_ar?.trim() || !edit.name_en?.trim() || !(Number(edit.hours) > 0)} onClick={async () => {
+        <Sheet open onClose={() => setEdit(null)} title={edit.id ? n(edit as BundlePlan) : t("bu.new")} footer={<Button variant="primary" disabled={!edit.name_ar?.trim() || !edit.name_en?.trim() || !(edit.unlimited || Number(edit.hours) > 0)} onClick={async () => {
           const row = {
-            name_ar: edit.name_ar!.trim(), name_en: edit.name_en!.trim(), hours: Number(edit.hours) || 0, price: Number(edit.price) || 0,
+            name_ar: edit.name_ar!.trim(), name_en: edit.name_en!.trim(), hours: edit.unlimited ? 1 : Number(edit.hours) || 0, price: Number(edit.price) || 0,
+            unlimited: !!edit.unlimited, place_kind: edit.place_kind || null,
             valid_days: Math.min(730, Math.max(1, Number(edit.valid_days) || 30)), mode_id: edit.mode_id || null, sort: Number(edit.sort) || 0, active: edit.active !== false,
           };
           if (await after(edit.id ? supabase().from("bundle_plans").update(row).eq("id", edit.id) : supabase().from("bundle_plans").insert(row))) setEdit(null);
@@ -173,7 +178,7 @@ function BundlePlans() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("m.nameAr")}><Input id="bu-ar" dir="rtl" value={edit.name_ar ?? ""} onChange={(e) => setEdit({ ...edit, name_ar: e.target.value })} placeholder="باقة ١٠ ساعات" /></Field>
             <Field label={t("m.nameEn")}><Input id="bu-en" dir="ltr" value={edit.name_en ?? ""} onChange={(e) => setEdit({ ...edit, name_en: e.target.value })} placeholder="10-hour pack" /></Field>
-            <Field label={t("bu.hours")}><Input id="bu-hours" numeric value={String(edit.hours ?? "")} onChange={(e) => setEdit({ ...edit, hours: e.target.value as unknown as number })} /></Field>
+            {edit.unlimited ? null : <Field label={t("bu.hours")}><Input id="bu-hours" numeric value={String(edit.hours ?? "")} onChange={(e) => setEdit({ ...edit, hours: e.target.value as unknown as number })} /></Field>}
             <Field label={t("bu.price")}><Input id="bu-price" numeric value={String(edit.price ?? "")} onChange={(e) => setEdit({ ...edit, price: e.target.value as unknown as number })} /></Field>
             <Field label={t("bu.validDays")}><Input id="bu-days" numeric value={String(edit.valid_days ?? "")} onChange={(e) => setEdit({ ...edit, valid_days: e.target.value as unknown as number })} /></Field>
             <Field label={t("bu.mode")}>
@@ -182,7 +187,15 @@ function BundlePlans() {
                 {snap.modes.filter((m) => m.active).map((m) => <option key={m.id} value={m.id}>{n(m)}</option>)}
               </Select>
             </Field>
+            <Field label={t("ms.kind")}>
+              <Select id="bu-kind" value={edit.place_kind ?? ""} onChange={(e) => setEdit({ ...edit, place_kind: (e.target.value || null) as BundlePlan["place_kind"] })}>
+                <option value="">{t("ms.kindAny")}</option>
+                <option value="area">{t("ms.kindArea")}</option>
+                <option value="room">{t("ms.kindRoom")}</option>
+              </Select>
+            </Field>
           </div>
+          <Toggle checked={!!edit.unlimited} onChange={(x) => setEdit({ ...edit, unlimited: x })} label={t("ms.unlimitedToggle")} />
           <Toggle checked={edit.active !== false} onChange={(x) => setEdit({ ...edit, active: x })} label={t("st.active")} />
         </Sheet>
       ) : null}

@@ -16,7 +16,8 @@ const STAFF: Section[] = [
     title: { ar: "أول الشيفت", en: "Starting your shift" },
     steps: [
       { ar: "افتح dotcowork.space/staff وادخل برقم موبايلك والباسورد.", en: "Open dotcowork.space/staff and sign in with your phone number and password." },
-      { ar: "دوس «ابدأ الشيفت» عشان التنبيهات تشتغل بصوت والشاشة متطفيش.", en: "Tap “Start shift” so alerts can play sound and the screen stays on." },
+      { ar: "دوس «ابدأ الشيفت» عشان التنبيهات تشتغل بصوت والشاشة متطفيش. ده كمان بيسجل حضورك.", en: "Tap “Start shift” so alerts can play sound and the screen stays on. It also clocks you in." },
+      { ar: "آخر الشيفت: من قايمة اسمك «إنهاء الشيفت»، أو «خروج» وهي بتنهيه لوحدها.", en: "End of your shift: “End shift” from your name menu, or “Sign out”, which ends it too." },
       { ar: "لو اليوم لسه مفتحش، اكتب الفلوس اللي في الدرج (رصيد البداية) وافتح اليوم.", en: "If the day isn't open yet, type the cash in the drawer (opening float) and open the day." },
       { ar: "من قايمة اسمك فوق: شغّل «تنبيهات على الجهاز ده» عشان توصلك الطلبات والحجوزات حتى لو الصفحة مقفولة.", en: "From your name menu at the top, turn on “Alerts on this device” to get orders and bookings even when the page is closed." },
     ],
@@ -86,7 +87,8 @@ const STAFF: Section[] = [
     steps: [
       { ar: "دوّر بالموبايل أو الاسم أو الكود. القايمة بتوريك اللي عليهم فلوس.", en: "Search by phone, name or code. The list shows who owes money." },
       { ar: "حد بيسدد آجل؟ افتحه، اختار طريقة الدفع، واكتب المبلغ ← «سدّد». «فكّره بالباقي» بيبعتله واتساب.", en: "Someone paying their tab? Open them, pick the method, type the amount → “Pay off”. “Send a reminder” messages them on WhatsApp." },
-      { ar: "بيع باقة ساعات: من العميل «بيع باقة». بتتضاف على زيارته وبتتدفع معاها.", en: "Selling an hour bundle: on the customer, “Sell bundle”. It's added to their bill and paid with it." },
+      { ar: "بيع باقة ساعات أو اشتراك: من العميل «بيع باقة». بتتضاف على زيارته وبتتدفع معاها.", en: "Selling an hour bundle or a membership: on the customer, “Sell bundle”. It's added to their bill and paid with it." },
+      { ar: "الاشتراك وقته مفتوح لحد ما يخلص: لما تقفل الأوضة أو الكرسي بيغطي الوقت كله. اشتراك المساحة المشتركة مبيشتغلش في أوضة.", en: "A membership has unlimited time until it runs out: when you end the room or seat it covers all the time. A shared-area pass doesn't work in a private room." },
       { ar: "العميل بيشوف زيارته ورصيد ساعاته وعدد زياراته من «زيارتي» على الموبايل برقمه والكود.", en: "Customers see their bill, prepaid time and visits under “My bill” on their phone, with their number and code." },
     ],
   },
@@ -112,6 +114,16 @@ const OWNER: Section[] = [
       { ar: "«أنواع الاستخدام والأسعار» للسعر العادي، و«أسعار كل أوضة» لو أوضة ليها سعر مختلف.", en: "“Modes & hourly prices” for the normal price, and “Prices per room” where a room costs differently." },
       { ar: "«الأوض والترابيزات»: ضيف وسمّي وامسح. اللي ليه زيارات قديمة بيتخبى بدل ما يتمسح.", en: "“Rooms & tables”: add, rename, delete. Anything with past bills is hidden instead of deleted." },
       { ar: "«اطبع كل الأكواد» واحطها على الترابيزات والأوض.", en: "“Print all QR codes” and put them on the tables and rooms." },
+    ],
+  },
+  {
+    id: "o-money",
+    title: { ar: "الاشتراكات والمصاريف والمكسب", en: "Memberships, expenses and profit" },
+    steps: [
+      { ar: "«الإعدادات» ← «الباقات والاشتراكات» ← «اشتراك جديد»: اسم، سعر، صالح كام يوم (١ يوم، ٧، ٣٠)، وينفع فين (المساحات، الأوض، أو الاتنين).", en: "“Settings” → “Bundles and memberships” → “New membership”: name, price, valid for how many days (1, 7, 30), and where it works (shared areas, rooms or both)." },
+      { ar: "«المصاريف»: سجّل الإيجار والمرتبات والكهربا والخامات. المسحوبات من الدرج بتتحسب لوحدها.", en: "“Expenses”: record rent, salaries, electricity and supplies. Drawer cash outs count by themselves." },
+      { ar: "«التقارير»: «المكسب» = الإيراد ناقص المصاريف والمسحوبات. «ساعات الشغل» بتوريك كل واحد اشتغل قد إيه.", en: "“Reports”: “Profit” = revenue minus expenses and cash outs. “Staff hours” shows how long each person worked." },
+      { ar: "«النهارده» بيوريك مين في الشيفت دلوقتي.", en: "“Today” shows who is on shift right now." },
     ],
   },
   {

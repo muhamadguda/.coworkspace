@@ -70,7 +70,9 @@ export type MenuItem = {
   stock_auto_off?: boolean;
 };
 
-export type BundlePlan = { id: string; name_ar: string; name_en: string; hours: number; price: number; valid_days: number; mode_id: string | null; active?: boolean; sort?: number };
+export type PlaceKindScope = "room" | "area" | null;
+/** An hour bundle, or (unlimited) a membership pass for the days it's valid. */
+export type BundlePlan = { id: string; name_ar: string; name_en: string; hours: number; price: number; valid_days: number; mode_id: string | null; active?: boolean; sort?: number; unlimited?: boolean; place_kind?: PlaceKindScope };
 export type CustomerBundle = {
   id: string;
   customer_id: string;
@@ -86,6 +88,8 @@ export type CustomerBundle = {
   voided_at: string | null;
   created_at: string;
   source?: "purchase" | "loyalty";
+  unlimited?: boolean;
+  place_kind?: PlaceKindScope;
 };
 export type BundleUse = { id: string; bundle_id: string; session_id: string; minutes: number; amount: number; at: string };
 export type StockMove = { id: number; menu_item_id: string; delta: number; qty_after: number; reason: string; note: string; at: string; by: string | null };
@@ -248,7 +252,12 @@ export type Snapshot = {
   visits?: Record<string, number>;
   happy_hours?: HappyHour[];
   staff_calls?: StaffCall[];
+  shifts?: StaffShift[];
 };
+
+export type StaffShift = { id: string; user_id: string; started_at: string; ended_at: string | null };
+export type ExpenseCategory = "rent" | "salaries" | "utilities" | "internet" | "supplies" | "maintenance" | "marketing" | "other";
+export type Expense = { id: string; business_day: string; category: ExpenseCategory; amount: number; method: "cash" | "instapay" | "vodafone" | "bank" | "other"; note: string; created_at: string };
 
 export type StaffCall = { id: string; place_id: string; reason: "help" | "water" | "bill"; created_at: string; handled_at: string | null; handled_by: string | null };
 

@@ -365,11 +365,11 @@ function Floor({ catalog }: { catalog: Catalog | null }) {
           ) : null}
           {catalog?.bundle_plans?.length ? (
             <div className="grid gap-2">
-              <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("bu.title")}</span>
+              <span className="text-xs uppercase tracking-[0.3em] opacity-60">{t("bu.titleAll")}</span>
               <div className="flex flex-wrap gap-2">
                 {catalog.bundle_plans.map((b) => (
                   <span key={b.id} className="px-3 py-2 rounded-[2px] border-2 text-sm font-semibold" style={{ borderColor: MUSTARD }}>
-                    {n(b)} · <span className="num">{money(b.price)}</span>
+                    {n(b)} · {b.unlimited ? <>{t("ms.days", { d: b.valid_days })} · </> : null}<span className="num">{money(b.price)}</span>
                   </span>
                 ))}
               </div>

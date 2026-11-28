@@ -253,6 +253,11 @@ export function bundleCredit(fee: Pick<RoomFee, "lines" | "extraMinutes" | "extr
   return { minutes, amount: Math.min(round2(amount), fee.fee) };
 }
 
+/** Balance given to an unlimited membership pass (matches the server: 10M minutes ≈ 19 years). */
+export const UNLIMITED_MINUTES = 10_000_000;
+/** True for a membership pass balance (anything this big never comes from hours bought). */
+export const isUnlimitedBalance = (minutesLeft: number) => minutesLeft >= 1_000_000;
+
 export type DiscountInput ={ kind: "amount" | "percent" | null; value: number };
 
 /** Mirrors the server's checkout math exactly. */

@@ -7,7 +7,7 @@ Two surfaces:
 | Page | Who | What |
 |---|---|---|
 | `/` | Customers (no login) | Menu and ordering, my bill, room booking, live room availability |
-| `/staff` | Staff and owner (phone + password) | Rooms and tables board, orders, bills and checkout, bookings, customers and debts, cash drawer. Owner also gets menu, settings, QR codes, team and reports |
+| `/staff` | Staff and owner (phone + password) | Rooms and tables board, orders, bills and checkout, bookings, customers and debts, cash drawer, shifts. Owner also gets menu, stations, events, settings, QR codes, team, expenses and reports |
 
 Arabic (Egyptian dialect) is the default, with a visible English switch. Numbers are always Western digits. Currency is EGP.
 
@@ -52,6 +52,13 @@ Arabic (Egyptian dialect) is the default, with a visible English switch. Numbers
 - At the end, the room fee goes on the booker's bill, or is **split equally** across the bills staff select. The booker settles the room fee.
 - A bill follows its customer when moved: table → room joins that room's session; table → free room makes them the booker of a new session.
 
+## Hour bundles and memberships
+
+- **Hour bundles**: prepaid hours (e.g. 10 h for 1,000 EGP), valid for N days, optionally for one mode. They come off the room fee when staff end the room.
+- **Memberships** (day, week or month pass): unlimited time while valid. Sold and used like a bundle: when staff end a room or seat for the member, the pass covers the whole time fee. Food and drinks are still paid.
+- Bundles and passes can be limited to **shared areas** or **private rooms**; the server refuses a pass in the wrong kind of place. A member's pass is used before any hour bundle.
+- Owner sets plans in **Settings → Bundles and memberships**; the home page lists them. Customers see their pass and its end date under "My bill".
+
 ## Bookings
 
 - Customers request a booking (room, mode, date and time, duration, group size). It is **pending** until staff or the owner call the customer and confirm.
@@ -84,6 +91,8 @@ Arabic (Egyptian dialect) is the default, with a visible English switch. Numbers
 
 ## Staff and owner
 
+- **Shifts**: "Start shift" clocks the signed-in person in; "End shift" (name menu) or signing out clocks them out. Works offline like any counter action. A shift left open is closed after 16 hours and flagged. The owner sees who is on shift on the Today card and hours per person in Reports.
+
 - Staff sign in with **phone + password**. The owner creates staff, resets passwords and disables accounts. There's no SMS.
 - Staff cannot change prices or settings, cannot exceed discount or debt limits without the owner, and cannot delete payments.
 - Every discount, pay-later, cancellation, cash out, debt payment and day close is written to an audit log.
@@ -100,6 +109,11 @@ Arabic (Egyptian dialect) is the default, with a visible English switch. Numbers
 Everything below exports to **CSV** (opens in Excel, Arabic included). A **System health** panel lists app errors from the last 30 days.
 
 Revenue and collections by method, room fees vs food and drinks, discounts, new pay-later and debt collected, removed items, revenue by day, room usage per room and mode, top items, outstanding balances, cash drawer closes with differences, cash outs, and cancelled orders. Ranges: today, yesterday, last 7 days, this month, or custom.
+
+## Expenses and profit (owner)
+
+- **Expenses**: the owner records spending by day, category (rent, salaries, electricity and water, internet, supplies, maintenance, marketing, other), payment method and a note. Owner only; needs internet; every add, edit and delete is audited.
+- **Profit** in Reports = revenue − expenses − drawer cash outs, for the chosen range, with the breakdown by category. Exported in the CSV with staff hours.
 
 ## Stations and custom menus (owner)
 

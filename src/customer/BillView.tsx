@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useErrorText, useI18n } from "@/lib/i18n";
 import { errorCode, isNetworkError, rpc } from "@/lib/supabase";
-import { bundleCredit, computeRoomFee, happyNow, round2, type FeeSettings, type HappyHour } from "@/lib/billing";
+import { bundleCredit, computeRoomFee, happyNow, isUnlimitedBalance, round2, type FeeSettings, type HappyHour } from "@/lib/billing";
 import { wifiQrText } from "@/lib/dotqr";
 import { DotQR } from "@/components/DotQR";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
@@ -28,7 +28,7 @@ type BillData = {
     };
   };
   bookings: { id: string; status: "pending" | "confirmed"; starts_at: string; duration_minutes: number; place_ar: string; place_en: string; mode_ar: string; mode_en: string }[];
-  bundles?: { name_ar: string; name_en: string; minutes_left: number; expires_at: string; mode_id: string | null; source: "purchase" | "loyalty" }[];
+  bundles?: { name_ar: string; name_en: string; minutes_left: number; expires_at: string; mode_id: string | null; source: "purchase" | "loyalty"; unlimited?: boolean; place_kind?: "room" | "area" | null }[];
   loyalty?: { visits: number; every: number; reward_minutes: number };
   review_url?: string;
   wifi?: { ssid: string; password: string } | null;
@@ -123,7 +123,7 @@ export function BillView() {
     ? computeRoomFee({ segments: s.segments, kind: s.kind, plannedEnd: s.planned_end, end: now, settings: data.settings, chargeOverstay: false, happy: { hours: data.happy_hours ?? [], placeKind: b?.place?.kind ?? "room" } })
     : null;
   const happy = s && s.status === "active" ? happyNow(data.happy_hours ?? [], b?.place?.kind ?? "room", now.getTime()).filter((h) => !h.mode_id || h.mode_id === s.segments.at(-1)?.mode_id) : [];
-  const bundle = s && s.is_booker ? (data.bundles ?? []).find((x) => !x.mode_id || s.segments.some((g) => g.mode_id === x.mode_id)) : undefined;
+  const bundle = s && s.is_booker ? (data.bundles ?? []).find((x) => (!x.mode_id || s.segments.some((g) => g.mode_id === x.mode_id)) && (!x.place_kind || x.place_kind === b?.place?.kind)) : undefined;
   const credit = fee && bundle ? bundleCredit(fee, bundle.minutes_left, bundle.mode_id) : null;
   const liveFee = fee ? round2(fee.fee - (credit?.amount ?? 0)) : 0;
   const roomAmount = s ? (s.status === "active" ? (s.is_booker ? liveFee : 0) : b!.room_fee_share) : b?.room_fee_share ?? 0;
@@ -243,7 +243,7 @@ export function BillView() {
           {data.bundles!.map((x, i) => (
             <div key={i} className="flex justify-between gap-2 text-sm">
               <span>{lang === "ar" ? x.name_ar : x.name_en}{x.source === "loyalty" ? <> <Pill tone="accent">{t("ly.reward")}</Pill></> : null}</span>
-              <span className="num font-semibold">{dur(Math.round(x.minutes_left))}</span>
+              <span className="num font-semibold">{x.unlimited || isUnlimitedBalance(x.minutes_left) ? t("ms.until", { d: new Intl.DateTimeFormat(lang === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { timeZone: "Africa/Cairo", day: "numeric", month: "short" }).format(new Date(x.expires_at)) }) : dur(Math.round(x.minutes_left))}</span>
             </div>
           ))}
         </Card>

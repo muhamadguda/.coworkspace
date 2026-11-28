@@ -6,7 +6,7 @@ import { bundleCredit, round2, splitEqual } from "@/lib/billing";
 import { isOpenBooking, modeFits, rateFor } from "@/lib/pricing";
 import type { Place, Session } from "@/lib/types";
 import { Button, Card, Field, Input, Pill, Segmented, Select, Sheet, Toggle, cx } from "@/components/ui";
-import { activeBundlesOf, billsInSession, customerById, fmtHours, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
+import { activeBundlesOf, billsInSession, bundleLeftText, customerById, liveRoomFee, openBillOfCustomer, placeById, upcomingBookingFor } from "../derive";
 import { dispatch, serverNow, uuid } from "../store";
 import { useNow, useSnap } from "../hooks";
 import { CustomerPicker } from "./CustomerPicker";
@@ -127,7 +127,8 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
 
   const fee = useMemo(() => liveRoomFee(snap, session, now, chargeOverstay), [snap, session, now, chargeOverstay]);
   // Booker's hour bundle (soonest to expire first). Only when the booker pays the room.
-  const bundle = activeBundlesOf(snap, session.booker_customer_id, now)
+  const place = placeById(snap, session.place_id);
+  const bundle = activeBundlesOf(snap, session.booker_customer_id, now, place?.kind)
     .filter((b) => !b.mode_id || fee.lines.some((l) => l.mode_id === b.mode_id))[0];
   const [useBundle, setUseBundle] = useState(true);
   const credit = bundle && split === "booker" && useBundle ? bundleCredit(fee, bundle.minutes_total - bundle.minutes_used, bundle.mode_id) : null;
@@ -138,7 +139,6 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
       ? [bookerBill.id, ...bills.filter((b) => b.id !== bookerBill.id && selected.includes(b.id)).map((b) => b.id)]
       : [bookerBill.id];
   const shares = splitEqual(netFee, participants);
-  const place = placeById(snap, session.place_id);
 
   function end() {
     dispatch("end_session", {
@@ -179,7 +179,7 @@ export function EndSessionSheet({ session, open, onClose, onEnded }: { session: 
           <Toggle
             checked={useBundle && split === "booker"}
             onChange={setUseBundle}
-            label={<span>{t("bu.use")} · {n(bundle)} · <span className="num">{t("bu.left", { h: fmtHours(bundle.minutes_total - bundle.minutes_used) })}</span></span>}
+            label={<span>{t("bu.use")} · {n(bundle)} · <span className="num">{bundleLeftText(bundle, t)}</span></span>}
           />
           {split !== "booker" ? <span className="text-xs text-muted">{t("bu.bookerOnly")}</span> : null}
           {credit && credit.minutes > 0 ? (

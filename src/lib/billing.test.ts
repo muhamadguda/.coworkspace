@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeRoomFee, splitEqual, billTotals, discountWithinCap, businessDay, bundleCredit, cairoInstant, happyNow, type HappyHour } from "./billing.ts";
+import { computeRoomFee, splitEqual, billTotals, discountWithinCap, businessDay, bundleCredit, cairoInstant, happyNow, isUnlimitedBalance, UNLIMITED_MINUTES, type HappyHour } from "./billing.ts";
 
 const S = { min_session_minutes: 60, billing_step_minutes: 15, grace_minutes: 10 };
 const t0 = "2026-11-03T16:00:00.000Z";
@@ -164,4 +164,11 @@ test("Cairo clock follows daylight saving", () => {
 test("bundle credit covers what the minutes cost after the happy hour", () => {
   const r = computeRoomFee({ ...one(at(90)), happy: { hours: [hh({})], placeKind: "room" } });
   assert.deepEqual(bundleCredit(r, 600, null), { minutes: 90, amount: 150 });
+});
+
+test("membership pass covers the whole time fee and is recognised as unlimited", () => {
+  const r = computeRoomFee({ segments: [{ mode_id: "a", rate: 30, started_at: t0, ended_at: null }], kind: "open", plannedEnd: null, end: at(9 * 60), settings: S });
+  assert.deepEqual(bundleCredit(r, UNLIMITED_MINUTES - 540, null), { minutes: r.billedMinutes, amount: r.fee });
+  assert.ok(isUnlimitedBalance(UNLIMITED_MINUTES - 100000));
+  assert.ok(!isUnlimitedBalance(1000 * 60));
 });

@@ -345,4 +345,85 @@ begin
   raise notice 'menu target tests: all passed';
 end $m$;
 
+-- Round 8: memberships, expenses, shifts.
+do $r8$
+declare uid uuid; plan uuid := gen_random_uuid(); cust uuid := gen_random_uuid(); bund uuid := gen_random_uuid();
+  room uuid; area uuid := gen_random_uuid(); amode uuid := gen_random_uuid(); mode uuid; sess uuid := gen_random_uuid(); bill uuid;
+  r jsonb; ok boolean; s1 uuid := gen_random_uuid(); s2 uuid := gen_random_uuid(); n int;
+begin
+  select user_id into uid from staff_profiles where role = 'owner' and active limit 1;
+  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select id into room from places p where kind = 'room' and active and not exists (select 1 from room_sessions s where s.place_id = p.id and s.status = 'active') order by sort limit 1;
+  select id into mode from room_modes where active and place_scope <> 'area' order by sort limit 1;
+  insert into places (id, kind, name_ar, name_en, capacity) values (area, 'area', 'مساحة', 'Area r8', 5);
+  insert into room_modes (id, name_ar, name_en, hourly_rate, place_scope) values (amode, 'كرسي', 'Seat r8', 30, 'area');
+
+  -- Monthly pass for shared areas: unlimited, covers the whole seat fee, refused in a room.
+  insert into bundle_plans (id, name_ar, name_en, hours, price, valid_days, unlimited, place_kind) values (plan, 'اشتراك شهري', 'Monthly pass', 1, 1500, 30, true, 'area');
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'ensure_customer', 'payload', jsonb_build_object('id', cust, 'phone', '01077770001')));
+  r := staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'sell_bundle', 'payload', jsonb_build_object('id', bund, 'plan_id', plan, 'customer_id', cust, 'bill_id', gen_random_uuid(), 'order_id', gen_random_uuid(), 'item_id', gen_random_uuid())));
+  bill := (r->>'bill_id')::uuid;
+  assert (select unlimited and place_kind = 'area' and minutes_total = 10000000 from customer_bundles where id = bund), 'pass copies plan scope and is unlimited';
+  assert exists (select 1 from jsonb_array_elements(public_catalog2()->'bundle_plans') x where x->>'id' = plan::text and (x->>'unlimited')::boolean), 'catalog shows the pass';
+
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'at', now() - interval '9 hours', 'payload', jsonb_build_object('id', sess, 'place_id', room, 'customer_id', cust, 'bill_id', bill, 'mode_id', mode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+  begin
+    perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'end_session', 'payload', jsonb_build_object('session_id', sess, 'billed_minutes', 540, 'room_fee', 0, 'split_mode', 'booker',
+      'shares', jsonb_build_array(jsonb_build_object('bill_id', bill, 'amount', 0)),
+      'bundle', jsonb_build_object('bundle_id', bund, 'minutes', 540, 'amount', (select rate * 9 from session_segments where session_id = sess)))));
+    ok := false;
+  exception when others then ok := sqlerrm = 'bundle_place'; end;
+  assert ok, 'an area pass is refused in a room';
+  assert (select status from room_sessions where id = sess) = 'active', 'refused end leaves the room running';
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'end_session', 'payload', jsonb_build_object('session_id', sess, 'billed_minutes', 540,
+    'room_fee', (select rate * 9 from session_segments where session_id = sess), 'split_mode', 'booker',
+    'shares', jsonb_build_array(jsonb_build_object('bill_id', bill, 'amount', (select rate * 9 from session_segments where session_id = sess))))));
+
+  sess := gen_random_uuid();
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'start_session', 'at', now() - interval '9 hours', 'payload', jsonb_build_object('id', sess, 'place_id', area, 'customer_id', cust, 'bill_id', bill, 'mode_id', amode, 'kind', 'open', 'segment_id', gen_random_uuid())));
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'end_session', 'payload', jsonb_build_object('session_id', sess, 'billed_minutes', 540, 'room_fee', 0, 'split_mode', 'booker',
+    'shares', jsonb_build_array(jsonb_build_object('bill_id', bill, 'amount', 0)),
+    'bundle', jsonb_build_object('bundle_id', bund, 'minutes', 540, 'amount', 270))));
+  assert (select minutes_used from customer_bundles where id = bund) = 540, 'pass tracks time used';
+  assert (select room_fee from room_sessions where id = sess) = 0, 'pass covers the seat fee';
+
+  -- Shifts: start, start again (auto-closes the first), end; owner sees hours.
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'shift_start', 'at', now() - interval '20 hours', 'payload', jsonb_build_object('id', s1)));
+  perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'shift_start', 'at', now() - interval '1 hour', 'payload', jsonb_build_object('id', s2)));
+  assert (select auto_closed and ended_at = started_at + interval '16 hours' from staff_shifts where id = s1), 'forgotten shift closes at 16 hours';
+  r := jsonb_build_object('id', gen_random_uuid(), 'type', 'shift_end', 'payload', '{}'::jsonb);
+  perform staff_op6(r);
+  perform staff_op6(r);
+  assert (select ended_at is not null from staff_shifts where id = s2), 'shift ended';
+  select count(*) into n from jsonb_array_elements(owner_shifts(current_date - 2, current_date + 1)) x where (x->>'id')::uuid in (s1, s2);
+  assert n = 2, 'owner sees both shifts';
+  assert jsonb_typeof(staff_snapshot3()->'shifts') = 'array', 'snapshot has shifts';
+
+  -- Expenses: owner only, audited.
+  insert into expenses (business_day, category, amount, note) values (current_date, 'rent', 8000, 'November');
+  assert exists (select 1 from audit_log where action = 'expense_add'), 'expense audited';
+  begin
+    insert into expenses (business_day, category, amount) values (current_date, 'rent', -5);
+    ok := false;
+  exception when others then ok := true; end;
+  assert ok, 'negative expense refused';
+
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  assert (select count(*) from expenses) = 0, 'anon sees no expenses';
+  begin
+    perform owner_shifts(current_date - 2, current_date + 1);
+    ok := false;
+  exception when others then ok := true; end;
+  assert ok, 'anon cannot read shifts';
+  begin
+    perform staff_op6(jsonb_build_object('id', gen_random_uuid(), 'type', 'shift_start', 'payload', jsonb_build_object('id', gen_random_uuid())));
+    ok := false;
+  exception when others then ok := true; end;
+  assert ok, 'anon cannot clock in';
+  perform set_config('role', 'postgres', true);
+  raise notice 'round 8 tests: all passed';
+end $r8$;
+
 rollback;
