@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { rpc } from "@/lib/supabase";
 import { getPushSubscription, pushSupport } from "@/lib/push";
@@ -18,7 +18,10 @@ const read = () => {
 /** "Tell me about new events": a phone notification when the owner announces one. */
 export function EventsNotify({ className }: { className?: string }) {
   const { t, lang } = useI18n();
-  const [on, setOn] = useState(read);
+  // Read device storage after hydration: the HTML is prerendered with "off".
+  const [on, setOn] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setOn(read()), []);
   const [state, setState] = useState<"idle" | "busy" | "ios" | "blocked" | "unsupported">("idle");
 
   async function toggle(next: boolean) {
